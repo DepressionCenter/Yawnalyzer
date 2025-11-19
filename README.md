@@ -24,7 +24,7 @@ Automated data cleaning and sleep/gait metrics for Apple Watch data collected vi
 
 
 ## About the Team
-1-2 paragraphs about your department, core, lab, study team, class or project. This is your marketing space!
+This project is the result of a collaboration between Michigan Medicine Neurology Clinic, University of Michigan HomeLab, and Eisenberg Family Depression Center.
 
 Learn more at: [U-M HomeLab](https://homelab.isr.umich.edu/)
 
