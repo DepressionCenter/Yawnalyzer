@@ -1,54 +1,54 @@
 ![Depression Center Logo](https://github.com/DepressionCenter/.github/blob/main/images/EFDCLogo_375w.png "depressioncenter.org")
 
-# <Repository Title>
+# Yawnalyzer
 
 ## Description
-<Program/Library name> is a < program/library/collection of scripts > for < description of what it does and what problem it solves >.
+Automated data cleaning and sleep and gait metrics from Apple Watch data that is collected via SensorKit and ResearchKit.
 
 
 
 ## Quick Start Guide
-+ < Short compile/run instructions, without too much detail >
++ Coming soon!
 
 
 
 ## Documentation
-+ The full documentation is available at: < Link to manual, wiki, full documentation, etc. >
-+ __OR__ Detailed setup and use instructions are available in the companion knowledge base article, [ article_title ]( link ).
++ The full documentation is available at the Esinberg Family Depression Center's Health Research Resource Library: https://michmed.org/efdc-kb
 
 
 
 
 ## Additional Resources
-+ < Links to study website, related projects, etc. >
++ None
 
 
 
 ## About the Team
-< 1-2 paragraphs about your department, core, lab, study team, class or project. This is your marketing space! >
+1-2 paragraphs about your department, core, lab, study team, class or project. This is your marketing space!
 
-Learn more at: < link to dept/lab/project website >
+Learn more at: [U-M HomeLab](https://homelab.isr.umich.edu/)
 
 
 
 ## Contact
 To get in touch, contact the individual developers in the check-in history.
 
-If you need assistance identifying a contact person, email the project maintainers at: < dept/lab/mcommunity group email address >.
+If you need assistance identifying a contact person, email the project maintainers at: efdc-mobiletech@umich.edu
 
 
 
 ## Credits
 #### Contributors:
++ Brand Labbree [(@blabbree)](https://github.com/blabbree) - U-M HomeLab
++ [Tiffany Braley](https://www.medicine.umich.edu/dept/mni/tiffany-braley-md) - Michigan Medicine Neurology
++ Gabriel Mongefranco [(@gabrielmongefranco)](https://github.com/gabrielmongefranco) - Depression Center
 + Eisenberg Family Depression Center [(@DepressionCenter)](https://github.com/DepressionCenter/)
-+ Gabriel Mongefranco [(@gabrielmongefranco)](https://github.com/gabrielmongefranco)
-+ Name [ @githubusername ]( link to github profile or website )
 
 
 
 #### This work is based in part on the following projects, libraries and/or studies:
-+ None
-+ __OR__ < Library or project name > - < link >
++ Apple HealthKit
++ Arcascope custom research data collection application
 
 
 
