@@ -3,7 +3,7 @@
 # Yawnalyzer
 
 ## Description
-Automated data cleaning and sleep and gait metrics from Apple Watch data that is collected via SensorKit and ResearchKit.
+Automated data cleaning and sleep/gait metrics for Apple Watch data collected via SensorKit and ResearchKit.
 
 
 
