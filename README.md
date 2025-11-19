@@ -39,7 +39,7 @@ If you need assistance identifying a contact person, email the project maintaine
 
 ## Credits
 #### Contributors:
-+ Brand Labbree [(@blabbree)](https://github.com/blabbree) - U-M HomeLab
++ Brandon Labbree [(@blabbree)](https://github.com/blabbree) - U-M HomeLab
 + [Tiffany Braley](https://www.medicine.umich.edu/dept/mni/tiffany-braley-md) - Michigan Medicine Neurology
 + Gabriel Mongefranco [(@gabrielmongefranco)](https://github.com/gabrielmongefranco) - Depression Center
 + Eisenberg Family Depression Center [(@DepressionCenter)](https://github.com/DepressionCenter/)
