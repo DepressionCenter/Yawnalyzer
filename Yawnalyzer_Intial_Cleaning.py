@@ -291,9 +291,11 @@ if df_hr_list:
     df_hr = pd.concat(df_hr_list, ignore_index=True)
 
 if df_survey_list:
+    for survey in df_survey_list:
+        if "Question4" not in survey.columns:
+            survey["Question4"] = pd.NA
     df_survey = pd.concat(df_survey_list, ignore_index=True)
-    if df_survey["Question4"]:
-        df_survey["Question4"] = " "
+
 if df_cognitive_survey_list:
     df_cognitive_survey = pd.concat(df_cognitive_survey_list, ignore_index=True)
 if df_gait_list:
@@ -360,8 +362,9 @@ if not df_cognitive_survey.empty:
 
 if not df_gait.empty:
     df_gait = df_gait[
-        survey_meta_data + [col for col in df_gait.columns if col not in meta_data]
-    ]
+        meta_data + [col for col in df_gait.columns if col not in meta_data]
+    ].rename(columns={'Value': 'Balance'})
+
     df_gait.to_csv(
         os.path.join(PathKeeper.merged_data_path, "gait_collapsed.csv"),
         index_label="index_1",
