@@ -14,6 +14,7 @@ format:
     code-fold: true
     df-print: paged
     embed-resources: true
+    html-math-method: mathjax
 jupyter: python3
 ---
 
@@ -38,7 +39,7 @@ RID = "PARTICIPANT_ID"
 import os
 import pandas as pd
 import numpy as np
-import neurokit2 as nk
+#import neurokit2 as nk
 import plotly.express as px
 import plotly.graph_objects as go
 import datetime as dt
@@ -145,8 +146,22 @@ hr_df["TimestampISO"] = pd.to_datetime(hr_df["TimestampISO"],errors="coerce", ut
 
 sleep_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"sleep_collapsed.csv"), index_col=["index_1"])
 
+gait_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"gait_collapsed.csv"), index_col=["index_1"])
+gait_df["TimestampISO"] = (
+    gait_df["TimestampISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(gait_df["Timestamp"], unit="s", utc=False))
+)
+
 hr_df = hr_df[hr_df["ID"] == RID]
 sleep_df = sleep_df[sleep_df["ID"] == RID]
+gait_df = gait_df[gait_df["ID"] == RID]
+
+has_hr ="hr_df" in locals() and len(hr_df) > 0
+
+has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
+
+has_gait ="gait_df" in locals() and len(gait_df) > 0
 
 ```
 
@@ -214,6 +229,8 @@ hr_df["TimestampISO"] = (
     .infer_objects()
 )   
 
+
+
 ```
 
 # Heart Rate
@@ -223,12 +240,12 @@ hr_df["TimestampISO"] = (
 ```{python}
 
 #| label: Prettify_HR_Table
-#| eval: True
 
-if len(hr_df) > 0:
-    prettify_info(hr_df)
+if has_hr:
+    display(prettify_info(hr_df))
 else:
     display(Markdown(f"_**No Heart Rate Data Exists**_"))
+
 ```
 
 ## Plotting
@@ -238,7 +255,7 @@ else:
 #| label: "Plot_HR_Data_by_2-day_increments"
 #| eval: False
 
-if len(hr_df) > 0:
+if has_hr:
     origin = hr_df['TimestampISO'].dropna().min().normalize()
 
     hr_df["week_idx"] = ((hr_df["TimestampISO"] - origin) // pd.Timedelta(days=2)).astype(int)
@@ -299,7 +316,7 @@ else:
 
 #| eval: True
 
-if len(hr_df) > 0:
+if has_hr:
     q = hr_df.sort_values(by="TimestampISO")
 
     fig = go.Figure()
@@ -351,13 +368,13 @@ else:
 
 ```{python}
 #| eval: True
-if len(sleep_df) > 0:
-    prettify_info(sleep_df)
+if has_sleep:
+    display(prettify_info(sleep_df))
 else:
     display(Markdown(f"_**No Sleep Data Exists**_"))
-    with open("MissingSleep.txt", "r") as file:
-    content = file.read()
-    print(content)
+    # with open("MissingSleep.txt", "r") as file:
+    # content = file.read()
+    # print(content)
 
 ```
 
@@ -368,7 +385,7 @@ else:
 #| eval: True
 
 
-if len(sleep_df) > 0:
+if has_sleep:
     sleep_df["Night_of_Sleep"] =  pd.to_datetime(sleep_df["Night_of_Sleep"], errors="coerce")
 
     origin = sleep_df['Night_of_Sleep'].min()
@@ -436,11 +453,81 @@ else:
 
 # Gait and Walking Metrics
 
+## General Information
+
 ```{python}
 
-if len(gait_df) > 0:
-    print("Gait Data exists")
+if has_gait:
+    display(prettify_info(gait_df))
 else:
     display(Markdown(f"_**No Gait Data Exists**_"))
 
+```
+
+## Plot
+
+
+```{python}
+#| eval: false
+if has_gait:
+    gait_df["TimestampISO"] = (
+    pd.to_datetime(hr_df["TimestampISO"], utc=True, errors="coerce")
+    .dt.tz_convert("America/Detroit")
+    .infer_objects()
+)   
+
+    origin = gait_df['TimestampISO'].dropna().min().normalize()
+
+    hr_df["week_idx"] = ((hr_df["TimestampISO"] - origin) // pd.Timedelta(days=2)).astype(int)
+
+    hr_df["WeekStart"] =origin + pd.to_timedelta(hr_df["week_idx"]*2, unit="D")
+
+    weeks = sorted(hr_df["WeekStart"].unique())
+    num_weeks = len(weeks)
+
+    figs = go.Figure()
+
+    # Add traces for each week, initially hidden
+    for i, w in enumerate(weeks):
+        # print(i)
+        # print(w)
+        temp = hr_df[hr_df["WeekStart"] == w].sort_values(by="TimestampISO")
+        visible = [False] * len(weeks)
+        visible[i] = True
+        
+        figs.add_trace(
+            go.Scatter(
+                x=temp["TimestampISO"],
+                y=temp["HR"],
+                mode="markers",
+                name=f"Week of {w.date()}",
+                marker=dict(color="red"),
+                visible=(i == 0)  # only first visible by default
+            )
+        )
+
+        figs.update_xaxes(range=[hr_df[hr_df["WeekStart"] == w].min(),hr_df[hr_df["WeekStart"] == w].max()] )
+
+    # Dropdown menu
+    buttons = [
+        dict(
+            label=f"Week of\n{w.date()}",
+            method="update",
+            args=[
+                {"visible": [i == j for j in range(len(weeks))]},
+                {"title": f"Week of\n{w.date()}"}
+            ],
+        )
+        for i, w in enumerate(weeks)
+    ]
+
+    figs.update_layout(
+        updatemenus=[{"buttons": buttons, "direction": "down"}],
+        title=f"Week of {weeks[0].date()}",
+        template="plotly_white"
+    )
+
+    figs.show()
+else:
+    display(Markdown(f"_**No Gait Data Exists**_"))
 ```
