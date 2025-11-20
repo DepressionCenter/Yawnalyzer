@@ -1,0 +1,12 @@
+[project]
+name = "Yawnalyzer"
+version = "0.1.0"
+requires-python = ">= 3.13.8"
+dependencies = [
+    "datetime>=5.5",
+    "ipython>=9.7.0",
+    "jupyter>=1.1.1",
+    "numpy>=2.3.5",
+    "pandas>=2.3.3",
+    "plotly>=6.5.0",
+]

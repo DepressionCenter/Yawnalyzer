@@ -1,0 +1,446 @@
+---
+title: "Yawnalyzer"
+subtitle: "Preprocessing Report"
+author:
+  - name: NAME
+    email: EMAIL
+    affiliations: AFFILIATION
+date: last-modified
+date-format: "[Last Modified:] DD MMM YYYY"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    code-fold: true
+    df-print: paged
+    embed-resources: true
+jupyter: python3
+---
+
+```{python}
+
+#| tags: [parameters]
+#| echo: false
+#| message:
+#| code-fold: false
+
+RID = "PARTICIPANT_ID"
+
+```
+
+```{python}
+
+#| label: "Import_Packages" 
+#| echo: false
+#| message:
+#| code-fold: false
+
+import os
+import pandas as pd
+import numpy as np
+import neurokit2 as nk
+import plotly.express as px
+import plotly.graph_objects as go
+import datetime as dt
+from datetime import datetime, timedelta
+from IPython.display import Markdown, display
+import PathKeeper
+
+```
+
+# About this Report
+
+```{python}
+
+#| code-hide: true
+#| echo: false
+#| label: ParticipantID
+
+
+Markdown(f"> Participant: _**{RID}**_")
+
+```
+
+> Generation Date: `{python} dt.datetime.now().strftime("%Y-%m-%d")`
+
+This is a processing report for Subject ID (SID) **`{python} RID`** from the MS-EMA project (IRB #HUM00265263; PI: Tiffany Braley, MD). MS-EMA is an Apple watch-based sleep tracking study conducted with patients with Multiple Sclerosis. 
+
+This report provides both a sense of quality and summary metrics for the following types of information:
+
+- Heart rate (derived from PPG)
+- Sleep-related metrics
+- Gait and balance
+
+Data for the above were collected over the span of approximately 12 weeks for each subject. Plots contained within this report are summarized by week.
+
+
+```{python}
+
+#| label: "Functions"
+#| echo: false
+
+def prettify_info(df, memory_usage=False, deep=True, sort_by_nulls=False, show_unique=True, show_stats=True):
+  n=len(df)
+  info_df=pd.DataFrame({
+    "Column":df.columns,
+    "Total Count" : df.count(),
+    "Not-Nulls Count" : df.notnull().sum(),
+    "Missing Count" : df.isnull().sum(),
+    "Type" : df.dtypes.astype(str)
+    })
+  if show_unique:
+    info_df["Unique Count"] = df.nunique(dropna=True)
+  if show_stats:
+    numeric_cols = df.select_dtypes(include=[np.number])
+    means = numeric_cols.mean()#.round(5)
+    medians = numeric_cols.median()#.round(5)
+    stds = numeric_cols.std()#.round(5)
+    Minimum= numeric_cols.min()
+    FirstQuarter= numeric_cols.quantile(0.25)
+    ThirdQuarter= numeric_cols.quantile(0.75)
+    Maximum = numeric_cols.max()
+
+
+    info_df["Means"] =  info_df["Column"].map(means).infer_objects().fillna("")
+    info_df["Median"] =  info_df["Column"].map(medians).infer_objects().fillna("")
+    info_df["Standard Deviation"] =  info_df["Column"].map(stds).infer_objects().fillna("")
+    info_df["Min"] =  info_df["Column"].map(Minimum).fillna("")
+    info_df["25%"] =  info_df["Column"].map(FirstQuarter).infer_objects().fillna("")
+    info_df["75%"] =  info_df["Column"].map(ThirdQuarter).infer_objects().fillna("")
+    info_df["Max"] =  info_df["Column"].map(Maximum).infer_objects().fillna("")
+  
+  base_cols = ["Column", "Total Count","Not-Nulls Count","Missing Count"]
+  uniqueness_cols = ["Unique Count"] if show_unique else []
+  stat_cols = ["Means", "Median", "Standard Deviation", "Min", "25%", "75%", "Max"] if show_stats else []
+  info_df = info_df[base_cols + uniqueness_cols + stat_cols + ["Type"]]
+
+  if memory_usage:
+    mem = df.memory_usage(deep=deep).sum / 1024**2
+    print(f"Memory usage: {mem.df} MB")
+
+  
+  return info_df
+
+```
+
+
+
+```{python}
+
+#| label: "Inital-Read"
+#| echo: false
+#| warning: false
+
+hr_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"hr_collapsed.csv"), index_col=["index_1"], dtype={
+  "ID": "string",
+  "submission_date": "string",
+  "file_type": "string",
+  "HR": "float64",
+  "Timestamp":  "float64",
+  "filename": "string" 
+ }
+)
+
+hr_df["TimestampISO"] = pd.to_datetime(hr_df["TimestampISO"],errors="coerce", utc=True)
+
+sleep_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"sleep_collapsed.csv"), index_col=["index_1"])
+
+hr_df = hr_df[hr_df["ID"] == RID]
+sleep_df = sleep_df[sleep_df["ID"] == RID]
+
+```
+
+```{python}
+
+#| label: "Time-Conversions"
+#| eval: True
+
+sleep_df["StartISO"] = pd.to_datetime(sleep_df["StartISO"], utc=True).dt.tz_convert(
+    "America/Detroit"
+)
+sleep_df["EndISO"] = pd.to_datetime(sleep_df["EndISO"], utc=True).dt.tz_convert(
+    "America/Detroit"
+)
+
+sleep_df["StartISO"] = (
+    sleep_df["StartISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(sleep_df["Start"], unit="s", utc=True))
+)
+
+sleep_df["EndISO"] = (
+    sleep_df["EndISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(sleep_df["End"], unit="s", utc=True))
+)
+
+sleep_df["Duration"] = sleep_df["EndISO"] - sleep_df["StartISO"]
+
+sleep_df["Night_of_Sleep"] = np.where(
+    sleep_df["EndISO"].dt.hour < 12,
+    (sleep_df["EndISO"] - pd.Timedelta(days=1)).dt.date,
+    sleep_df["EndISO"].dt.date,
+)
+
+sleep_df["Duration"] = sleep_df["Duration"].where(
+    sleep_df["Duration"] <= pd.Timedelta(days=1),
+)
+
+sleep_df["Night_of_Sleep"] = sleep_df["Night_of_Sleep"].where(
+    sleep_df["Duration"].notna()
+)
+
+sleep_df["Night_of_Sleep"] = pd.to_datetime(
+    sleep_df["Night_of_Sleep"], utc=True
+).dt.tz_convert("America/Detroit")
+
+sleep_df["Night_of_Sleep"] = sleep_df["Night_of_Sleep"].dt.date
+
+sleep_df["EndISO"] = (
+    sleep_df["EndISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(sleep_df["End"], unit="s", utc=True))
+)
+
+hr_df["TimestampISO"] = (
+    hr_df["TimestampISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(hr_df["Timestamp"], unit="s", utc=True))
+)
+
+hr_df["TimestampISO"] = (
+    pd.to_datetime(hr_df["TimestampISO"], utc=True, errors="coerce")
+    .dt.tz_convert("America/Detroit")
+    .infer_objects()
+)   
+
+```
+
+# Heart Rate
+
+## General Information
+
+```{python}
+
+#| label: Prettify_HR_Table
+#| eval: True
+
+if len(hr_df) > 0:
+    prettify_info(hr_df)
+else:
+    display(Markdown(f"_**No Heart Rate Data Exists**_"))
+```
+
+## Plotting
+
+```{python}
+
+#| label: "Plot_HR_Data_by_2-day_increments"
+#| eval: False
+
+if len(hr_df) > 0:
+    origin = hr_df['TimestampISO'].dropna().min().normalize()
+
+    hr_df["week_idx"] = ((hr_df["TimestampISO"] - origin) // pd.Timedelta(days=2)).astype(int)
+
+    hr_df["WeekStart"] =origin + pd.to_timedelta(hr_df["week_idx"]*2, unit="D")
+
+    weeks = sorted(hr_df["WeekStart"].unique())
+    num_weeks = len(weeks)
+
+    figs = go.Figure()
+
+    # Add traces for each week, initially hidden
+    for i, w in enumerate(weeks):
+        # print(i)
+        # print(w)
+        temp = hr_df[hr_df["WeekStart"] == w].sort_values(by="TimestampISO")
+        visible = [False] * len(weeks)
+        visible[i] = True
+        
+        figs.add_trace(
+            go.Scatter(
+                x=temp["TimestampISO"],
+                y=temp["HR"],
+                mode="markers",
+                name=f"Week of {w.date()}",
+                marker=dict(color="red"),
+                visible=(i == 0)  # only first visible by default
+            )
+        )
+
+        figs.update_xaxes(range=[hr_df[hr_df["WeekStart"] == w].min(),hr_df[hr_df["WeekStart"] == w].max()] )
+
+    # Dropdown menu
+    buttons = [
+        dict(
+            label=f"Week of\n{w.date()}",
+            method="update",
+            args=[
+                {"visible": [i == j for j in range(len(weeks))]},
+                {"title": f"Week of\n{w.date()}"}
+            ],
+        )
+        for i, w in enumerate(weeks)
+    ]
+
+    figs.update_layout(
+        updatemenus=[{"buttons": buttons, "direction": "down"}],
+        title=f"Week of {weeks[0].date()}",
+        template="plotly_white"
+    )
+
+    figs.show()
+else:
+    display(Markdown(f"_**No Heart Rate Data Exists**_"))
+```
+
+```{python}
+
+#| eval: True
+
+if len(hr_df) > 0:
+    q = hr_df.sort_values(by="TimestampISO")
+
+    fig = go.Figure()
+
+    fig.add_trace(
+    go.Scatter(
+        x=q["TimestampISO"],
+        y=q["HR"],
+        mode="lines+markers",
+        marker=dict(
+        color="red"
+        ),
+        line=dict(
+        color="green",
+        width=1
+        )
+    )
+    )
+
+    # fig = px.line(
+    #   x=q["TimestampISO"],
+    #   y=q["HR"],
+    #   markers=True
+    #   )
+    # fig.update_traces(
+    #   line_color="red",
+    # )
+    fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1 day", step="day", stepmode="backward"),
+                dict(count=3, label="3 days", step="day", stepmode="backward"),
+                dict(count=5, label="5 day", step="day", stepmode="backward"),
+                dict(count=7, label="1 week", step="day", stepmode="backward"),
+                dict(step="all")
+            ])
+        )
+    )
+    fig.show()
+else:
+    display(Markdown(f"_**No Heart Rate Data Exists**_"))
+
+```
+
+# Sleeping
+
+## General Information
+
+```{python}
+#| eval: True
+if len(sleep_df) > 0:
+    prettify_info(sleep_df)
+else:
+    display(Markdown(f"_**No Sleep Data Exists**_"))
+    with open("MissingSleep.txt", "r") as file:
+    content = file.read()
+    print(content)
+
+```
+
+## Plotting
+
+```{python}
+
+#| eval: True
+
+
+if len(sleep_df) > 0:
+    sleep_df["Night_of_Sleep"] =  pd.to_datetime(sleep_df["Night_of_Sleep"], errors="coerce")
+
+    origin = sleep_df['Night_of_Sleep'].min()
+
+    sleep_df["week_idx"] = ((sleep_df["Night_of_Sleep"] - origin) / pd.Timedelta(days=7)).astype(int)
+
+    sleep_df["WeekStart"] =origin + pd.to_timedelta(sleep_df["week_idx"]*7, unit="D")
+
+    weeks = sorted(sleep_df["WeekStart"].unique())
+    num_weeks = len(weeks)
+
+    figs = go.Figure()
+
+    # Add traces for each week, initially hidden
+    for i, w in enumerate(weeks):
+        temp = sleep_df[sleep_df["WeekStart"] == w].sort_values(by="Night_of_Sleep").drop_duplicates(subset=['EndISO'])
+        visible = [False] * len(weeks)
+        visible[i] = True
+        
+        figs.add_trace(
+            go.Scatter(
+                x=temp["Night_of_Sleep"],
+                y=temp["Duration"].astype("int64")/60000000000,
+                mode="markers",
+                name=f"Week of {w.date()}",
+                marker=dict(color="green"),
+                visible=(i == 0)  # only first visible by default
+            )
+        )
+
+        figs.update_xaxes(
+        range=[
+            temp["Night_of_Sleep"].min(),
+            temp["Night_of_Sleep"].min() + pd.to_timedelta(7, unit="D"),
+        ]
+        )
+
+        
+
+    # Dropdown menu
+    buttons = [
+        dict(
+            label=f"Week of\n{w.date()}",
+            method="update",
+            args=[
+                {"visible": [i == j for j in range(len(weeks))]},
+                {"title": f"Week of\n{w.date()}"}
+            ],
+        )
+        for i, w in enumerate(weeks)
+    ]
+
+    figs.update_layout(
+        updatemenus=[{"buttons": buttons, "direction": "down"}],
+        title=f"Week of {weeks[0].date()}",
+        template="plotly_white"
+    )
+    figs.show()
+else:
+    display(Markdown(f"_**No Sleep Data Exists**_"))
+
+
+```
+
+
+# Gait and Walking Metrics
+
+```{python}
+
+if len(gait_df) > 0:
+    print("Gait Data exists")
+else:
+    display(Markdown(f"_**No Gait Data Exists**_"))
+
+```
