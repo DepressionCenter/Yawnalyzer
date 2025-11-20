@@ -6,3 +6,5 @@ PathKeeper.py
 /.quarto/
 
 **/*.quarto_ipynb
+
+*.html
