@@ -384,7 +384,6 @@ else:
 
 #| eval: True
 
-
 if has_sleep:
     sleep_df["Night_of_Sleep"] =  pd.to_datetime(sleep_df["Night_of_Sleep"], errors="coerce")
 
@@ -530,4 +529,41 @@ if has_gait:
     figs.show()
 else:
     display(Markdown(f"_**No Gait Data Exists**_"))
+```
+
+# Merge Sleep and HR data
+
+```{python}
+#|label: Generate innital dataframe
+
+earliest_time =  min(hr_df["TimestampISO"].min(), sleep_df["StartISO"].min())
+latest_time = max(hr_df["TimestampISO"].max(), sleep_df["EndISO"].max())
+time_df = pd.DataFrame({
+    "GlobalTime": pd.date_range(
+        start=earliest_time,
+        end=latest_time,
+        freq="30s"
+    ),
+    "Asleep": "0"
+}
+)
+
+mask  = time_df["GlobalTime"].apply(
+    lambda time: ((sleep_df["StartISO"] <= time) & (sleep_df["EndISO"] >= time)).any()
+)
+
+time_df["Asleep"] = mask.astype(int)
+time_sorted_df = time_df.sort_values("GlobalTime")
+hr_sorted_df = hr_df.sort_values("TimestampISO")
+
+merge = pd.merge_asof(
+    time_sorted_df,
+    hr_sorted_df,
+    left_on="GlobalTime",
+    right_on="TimestampISO",
+    direction="nearest",
+    tolerance=pd.Timedelta(seconds=15)
+)
+
+new_order = merge[['ID','GlobalTime', 'Asleep', 'HR']]
 ```
