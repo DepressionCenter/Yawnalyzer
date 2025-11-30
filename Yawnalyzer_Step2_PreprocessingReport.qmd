@@ -567,3 +567,39 @@ merge = pd.merge_asof(
 
 new_order = merge[['ID','GlobalTime', 'Asleep', 'HR']]
 ```
+
+
+```{python}
+IDs = []
+start = []
+end = []
+average_hr = []
+for index, _ in sleep_df.iterrows():
+    ID = sleep_df["ID"][index]
+    start_time  = sleep_df["StartISO"][index]
+    end_time  = sleep_df["EndISO"][index]
+    IDs.append(ID)
+    start.append(start_time)
+    end.append(end_time)
+
+    aveHR = hr_sorted_df["HR"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)).mean()
+    average_hr.append(aveHR)
+    # new_df["AverageHR"] = new_order["HR"].where(
+    #     (new_order["GlobalTime"] >= start_time)
+    # ).mean()
+
+hr_dictionary = {
+    'ID': IDs,
+    'Start_Time': start,
+    'End_Time': end,
+    'Mean_HR_During_Period':average_hr
+}
+
+HR_summary_df = pd.DataFrame(hr_dictionary)
+```
+
+
+```{python}
+prettify_info(HR_summary_df)
+
+```
