@@ -191,8 +191,12 @@ sleep_df["EndISO"] = (
 
 sleep_df["Duration"] = sleep_df["EndISO"] - sleep_df["StartISO"]
 
+sleep_df["hour"] = sleep_df["EndISO"].dt.hour
+
+sleep_df["Before_or_After_noon"] = np.where(sleep_df["EndISO"].dt.hour < 12,"Morning","Afternoon")
+
 sleep_df["Night_of_Sleep"] = np.where(
-    sleep_df["EndISO"].dt.hour < 12,
+    sleep_df["Before_or_After_noon"] == "Morning",
     (sleep_df["EndISO"] - pd.Timedelta(days=1)).dt.date,
     sleep_df["EndISO"].dt.date,
 )
@@ -205,11 +209,11 @@ sleep_df["Night_of_Sleep"] = sleep_df["Night_of_Sleep"].where(
     sleep_df["Duration"].notna()
 )
 
-sleep_df["Night_of_Sleep"] = pd.to_datetime(
-    sleep_df["Night_of_Sleep"], utc=True
-).dt.tz_convert("America/Detroit")
+# sleep_df["Night_of_Sleep"] = pd.to_datetime(
+#     sleep_df["Night_of_Sleep"], utc=True
+# ).dt.tz_convert("America/Detroit")
 
-sleep_df["Night_of_Sleep"] = sleep_df["Night_of_Sleep"].dt.date
+#sleep_df["Night_of_Sleep"] = sleep_df["Night_of_Sleep"].dt.date
 
 sleep_df["EndISO"] = (
     sleep_df["EndISO"]
@@ -230,7 +234,7 @@ hr_df["TimestampISO"] = (
 )   
 
 
-
+sleep_df=sleep_df.drop(["hour","Before_or_After_noon"], axis=1)
 ```
 
 # Heart Rate
@@ -303,8 +307,9 @@ if has_hr:
 
     figs.update_layout(
         updatemenus=[{"buttons": buttons, "direction": "down"}],
-        title=f"Week of {weeks[0].date()}",
-        template="plotly_white"
+        title=f"Heart Rate: Week of {weeks[0].date()}",
+        template="plotly_white",
+        yaxis_title="Beats Per Minute"
     )
 
     figs.show()
@@ -427,7 +432,7 @@ if has_sleep:
     # Dropdown menu
     buttons = [
         dict(
-            label=f"Week of\n{w.date()}",
+            label=f"Sleep Data: Week of\n{w.date()}",
             method="update",
             args=[
                 {"visible": [i == j for j in range(len(weeks))]},
@@ -440,7 +445,8 @@ if has_sleep:
     figs.update_layout(
         updatemenus=[{"buttons": buttons, "direction": "down"}],
         title=f"Week of {weeks[0].date()}",
-        template="plotly_white"
+        template="plotly_white",
+        yaxis_title ="Minutes of Sleep"
     )
     figs.show()
 else:
@@ -467,21 +473,21 @@ else:
 
 
 ```{python}
-#| eval: false
+#| eval: true
 if has_gait:
     gait_df["TimestampISO"] = (
-    pd.to_datetime(hr_df["TimestampISO"], utc=True, errors="coerce")
+    pd.to_datetime(gait_df["TimestampISO"], utc=True, errors="coerce")
     .dt.tz_convert("America/Detroit")
     .infer_objects()
 )   
 
     origin = gait_df['TimestampISO'].dropna().min().normalize()
 
-    hr_df["week_idx"] = ((hr_df["TimestampISO"] - origin) // pd.Timedelta(days=2)).astype(int)
+    gait_df["week_idx"] = ((gait_df["TimestampISO"] - origin) // pd.Timedelta(days=2)).astype(int)
 
-    hr_df["WeekStart"] =origin + pd.to_timedelta(hr_df["week_idx"]*2, unit="D")
+    gait_df["WeekStart"] =origin + pd.to_timedelta(gait_df["week_idx"]*2, unit="D")
 
-    weeks = sorted(hr_df["WeekStart"].unique())
+    weeks = sorted(gait_df["WeekStart"].unique())
     num_weeks = len(weeks)
 
     figs = go.Figure()
@@ -490,27 +496,28 @@ if has_gait:
     for i, w in enumerate(weeks):
         # print(i)
         # print(w)
-        temp = hr_df[hr_df["WeekStart"] == w].sort_values(by="TimestampISO")
+        temp = gait_df[gait_df["WeekStart"] == w].sort_values(by="TimestampISO")
         visible = [False] * len(weeks)
         visible[i] = True
         
         figs.add_trace(
             go.Scatter(
                 x=temp["TimestampISO"],
-                y=temp["HR"],
+                y=temp["Balance"],
                 mode="markers",
                 name=f"Week of {w.date()}",
-                marker=dict(color="red"),
+                marker=dict(color="blue"),
                 visible=(i == 0)  # only first visible by default
             )
         )
 
-        figs.update_xaxes(range=[hr_df[hr_df["WeekStart"] == w].min(),hr_df[hr_df["WeekStart"] == w].max()] )
+        figs.update_xaxes(range=[gait_df[gait_df["WeekStart"] == w].min(),gait_df[gait_df["WeekStart"] == w].max()] )
+        figs.update_yaxes(range=[0,1])
 
     # Dropdown menu
     buttons = [
         dict(
-            label=f"Week of\n{w.date()}",
+            label=f"Gait Data Week of\n{w.date()}",
             method="update",
             args=[
                 {"visible": [i == j for j in range(len(weeks))]},
@@ -521,11 +528,13 @@ if has_gait:
     ]
 
     figs.update_layout(
+        yaxis_title="Gait Data",
         updatemenus=[{"buttons": buttons, "direction": "down"}],
-        title=f"Week of {weeks[0].date()}",
+        title=f"Balance: Week of {weeks[0].date()}",
         template="plotly_white"
     )
 
+    figs.add_hline(y=0.5, line_dash="dash", line_color="green", annotation_text="Balanced Gait")
     figs.show()
 else:
     display(Markdown(f"_**No Gait Data Exists**_"))
@@ -534,7 +543,7 @@ else:
 # Merge Sleep and HR data
 
 ```{python}
-#|label: Generate innital dataframe
+#|label: Generate merged HR and Sleep dataframe 
 
 earliest_time =  min(hr_df["TimestampISO"].min(), sleep_df["StartISO"].min())
 latest_time = max(hr_df["TimestampISO"].max(), sleep_df["EndISO"].max())
@@ -571,16 +580,20 @@ new_order = merge[['ID','GlobalTime', 'Asleep', 'HR']]
 
 ```{python}
 IDs = []
+night = []
 start = []
 end = []
 average_hr = []
+
 for index, _ in sleep_df.iterrows():
     ID = sleep_df["ID"][index]
     start_time  = sleep_df["StartISO"][index]
     end_time  = sleep_df["EndISO"][index]
+    sleep_day = sleep_df["Night_of_Sleep"][index]
     IDs.append(ID)
     start.append(start_time)
     end.append(end_time)
+    night.append(sleep_day)
 
     aveHR = hr_sorted_df["HR"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)).mean()
     average_hr.append(aveHR)
@@ -590,12 +603,17 @@ for index, _ in sleep_df.iterrows():
 
 hr_dictionary = {
     'ID': IDs,
+    'Night_of_Sleep': night,
     'Start_Time': start,
     'End_Time': end,
     'Mean_HR_During_Period':average_hr
 }
 
 HR_summary_df = pd.DataFrame(hr_dictionary)
+
+csv_name = "HR_Summary_"+RID+".csv"
+
+HR_summary_df.to_csv(csv_name)
 ```
 
 
