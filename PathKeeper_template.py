@@ -3,3 +3,4 @@
 # incomplete_participant_path = "PATH/TO/MainData/Folder/issues_participants.txt"
 # merged_data_path = "PATH/TO/FOLDER/FOR/MERGED/DATA" 
 # data_log_path = "PATH/TO/FOLDER/FOR/LOGS"
+# summarized_data_path ="PATH/TO/FOLDER/FOR/SUMMARIZED/DATA"
