@@ -10,7 +10,7 @@ date-format: "[Last Modified:] DD MMM YYYY"
 format:
   html:
     toc: true
-    toc-depth: 2
+    toc-depth: 3
     code-fold: true
     df-print: paged
     embed-resources: true
@@ -53,9 +53,10 @@ import PathKeeper
 
 ```{python}
 
+#| label: ParticipantID
 #| code-hide: true
 #| echo: false
-#| label: ParticipantID
+
 
 
 Markdown(f"> Participant: _**{RID}**_")
@@ -79,10 +80,13 @@ Data for the above were collected over the span of approximately 12 weeks for ea
 
 #| label: "Functions"
 #| echo: false
+#| warning: false
+#| message: false
 
 def prettify_info(df, memory_usage=False, deep=True, sort_by_nulls=False, show_unique=True, show_stats=True):
   n=len(df)
   info_df=pd.DataFrame({
+    
     "Column":df.columns,
     "Total Count" : df.count(),
     "Not-Nulls Count" : df.notnull().sum(),
@@ -131,6 +135,7 @@ def prettify_info(df, memory_usage=False, deep=True, sort_by_nulls=False, show_u
 #| label: "Inital-Read"
 #| echo: false
 #| warning: false
+#| message: false
 
 presence_df = pd.read_csv(os.path.join(PathKeeper.data_log_path,"Data_Presence_Log.csv"))
 
@@ -175,6 +180,9 @@ has_asymmetry= "asymmetry_df" in locals() and len(asymmetry_df) > 0
 
 #| label: "Time-Conversions"
 #| eval: True
+#| echo: false
+#| warning: false
+#| message: false
 
 #Sleep 
 
@@ -278,6 +286,9 @@ asymmetry_df["TimestampISO"] = (
 
 ```{python}
 #|label: Sort dataframes by Time
+#| echo: false
+#| warning: false
+#| message: false
 
 hr_df=hr_df.sort_values(by="TimestampISO")
 sleep_df = sleep_df.sort_values(by="StartISO")
@@ -293,6 +304,9 @@ asymmetry_df = asymmetry_df.sort_values("TimestampISO")
 ```{python}
 
 #| label: Prettify_HR_Table
+#|echo: false
+#| warning: false
+#| message: false
 
 if has_hr:
     display(prettify_info(hr_df))
@@ -307,6 +321,9 @@ else:
 
 #| label: "Plot_HR_Data_by_2-day_increments"
 #| eval: False
+#| echo: false
+#| warning: false
+#| message: false
 
 if has_hr:
     origin = hr_df['TimestampISO'].dropna().min().normalize()
@@ -369,6 +386,10 @@ else:
 ```{python}
 
 #| eval: True
+#| #| eval: False
+#| echo: false
+#| warning: false
+#| message: false
 
 if has_hr:
     q = hr_df.sort_values(by="TimestampISO")
@@ -422,6 +443,11 @@ else:
 
 ```{python}
 #| eval: True
+#| eval: False
+#| echo: false
+#| warning: false
+#| message: false
+
 if has_sleep:
     display(prettify_info(sleep_df))
 else:
@@ -437,6 +463,10 @@ else:
 ```{python}
 
 #| eval: True
+#| #| eval: False
+#| echo: false
+#| warning: false
+#| message: false
 
 if has_sleep:
     sleep_df["Night_of_Sleep"] =  pd.to_datetime(sleep_df["Night_of_Sleep"], errors="coerce")
@@ -507,9 +537,15 @@ else:
 
 # Gait and Walking Metrics
 
-## General Information
+## Gait
+
+### General Information
 
 ```{python}
+#| eval: False
+#| echo: false
+#| warning: false
+#| message: false
 
 if has_gait:
     display(prettify_info(gait_df))
@@ -518,11 +554,16 @@ else:
 
 ```
 
-## Plot
+### Plot
 
 
 ```{python}
 #| eval: true
+#| echo: false
+#| warning: false
+#| message: false
+
+
 if has_gait:
     gait_df["TimestampISO"] = (
     pd.to_datetime(gait_df["TimestampISO"], utc=True, errors="coerce")
@@ -532,9 +573,9 @@ if has_gait:
 
     origin = gait_df['TimestampISO'].dropna().min().normalize()
 
-    gait_df["week_idx"] = ((gait_df["TimestampISO"] - origin) // pd.Timedelta(days=2)).astype(int)
+    gait_df["week_idx"] = ((gait_df["TimestampISO"] - origin) // pd.Timedelta(days=7)).astype(int)
 
-    gait_df["WeekStart"] =origin + pd.to_timedelta(gait_df["week_idx"]*2, unit="D")
+    gait_df["WeekStart"] =origin + pd.to_timedelta(gait_df["week_idx"]*7, unit="D")
 
     weeks = sorted(gait_df["WeekStart"].unique())
     num_weeks = len(weeks)
@@ -589,20 +630,20 @@ else:
     display(Markdown(f"_**No Gait Data Exists**_"))
 ```
 
-# Double Support
+## Double Support
 
-## General Information
+### General Information
 
 ```{python}
 
 if has_double_support:
     display(prettify_info(double_support_df))
 else:
-    display(Markdown(f"_**No Gait Data Exists**_"))
+    display(Markdown(f"_**No Double Support Data Exists**_"))
 
 ```
 
-## Plot
+### Plot
 
 
 ```{python}
@@ -616,9 +657,9 @@ if has_double_support:
 
     origin = double_support_df['TimestampISO'].dropna().min().normalize()
 
-    double_support_df["week_idx"] = ((double_support_df["TimestampISO"] - origin) // pd.Timedelta(days=2)).astype(int)
+    double_support_df["week_idx"] = ((double_support_df["TimestampISO"] - origin) // pd.Timedelta(days=7)).astype(int)
 
-    double_support_df["WeekStart"] =origin + pd.to_timedelta(double_support_df["week_idx"]*2, unit="D")
+    double_support_df["WeekStart"] =origin + pd.to_timedelta(double_support_df["week_idx"]*7, unit="D")
 
     weeks = sorted(double_support_df["WeekStart"].unique())
     num_weeks = len(weeks)
@@ -636,7 +677,7 @@ if has_double_support:
         figs.add_trace(
             go.Scatter(
                 x=temp["TimestampISO"],
-                y=temp["Value"],
+                y=temp["Percentage"],
                 mode="markers",
                 name=f"Week of {w.date()}",
                 marker=dict(color="blue"),
@@ -661,13 +702,11 @@ if has_double_support:
     ]
 
     figs.update_layout(
-        yaxis_title="Double Support Data",
+        yaxis_title="Percentage of Time with Both Feet on Ground",
         updatemenus=[{"buttons": buttons, "direction": "down"}],
-        title=f"Balance: Week of {weeks[0].date()}",
+        title=f"Double Support: Week of {weeks[0].date()}",
         template="plotly_white"
     )
-
-    figs.add_hline(y=0.5, line_dash="dash", line_color="green", annotation_text="Balanced Gait")
     figs.show()
 else:
     display(Markdown(f"_**No Double Support Data Exists**_"))
@@ -678,6 +717,7 @@ else:
 
 ```{python}
 #|label: Generate merged HR and Sleep dataframe 
+
 
 earliest_time =  min(hr_df["TimestampISO"].min(), sleep_df["StartISO"].min())
 latest_time = max(hr_df["TimestampISO"].max(), sleep_df["EndISO"].max())
@@ -751,7 +791,7 @@ HR_summary_df = pd.DataFrame(hr_dictionary)
 
 csv_name = "HR_Summary_"+RID+".csv"
 
-HR_summary_df.to_csv(csv_name)
+HR_summary_df.to_csv(os.path.join(PathKeeper.summarized_data_path,csv_name))
 ```
 
 
