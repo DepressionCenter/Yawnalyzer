@@ -132,6 +132,8 @@ def prettify_info(df, memory_usage=False, deep=True, sort_by_nulls=False, show_u
 #| echo: false
 #| warning: false
 
+presence_df = pd.read_csv(os.path.join(PathKeeper.data_log_path,"Data_Presence_Log.csv"))
+
 hr_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"hr_collapsed.csv"), index_col=["index_1"], dtype={
   "ID": "string",
   "submission_date": "string",
@@ -142,20 +144,20 @@ hr_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"hr_collapsed.csv")
  }
 )
 
-hr_df["TimestampISO"] = pd.to_datetime(hr_df["TimestampISO"],errors="coerce", utc=True)
-
 sleep_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"sleep_collapsed.csv"), index_col=["index_1"])
 
 gait_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"gait_collapsed.csv"), index_col=["index_1"])
-gait_df["TimestampISO"] = (
-    gait_df["TimestampISO"]
-    .infer_objects()
-    .fillna(pd.to_datetime(gait_df["Timestamp"], unit="s", utc=False))
-)
+
+double_support_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"double_support_collapsed.csv"), index_col=["index_1"])
+
+asymmetry_df =pd.read_csv(os.path.join(PathKeeper.merged_data_path,"asymmetry_collapsed.csv"), index_col=["index_1"])
+
 
 hr_df = hr_df[hr_df["ID"] == RID]
 sleep_df = sleep_df[sleep_df["ID"] == RID]
 gait_df = gait_df[gait_df["ID"] == RID]
+double_support_df = double_support_df[double_support_df["ID"] == RID]
+asymmetry_df = asymmetry_df[asymmetry_df["ID"] == RID]
 
 has_hr ="hr_df" in locals() and len(hr_df) > 0
 
@@ -163,12 +165,18 @@ has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
 
 has_gait ="gait_df" in locals() and len(gait_df) > 0
 
+has_double_support ="double_support_df" in locals() and len(double_support_df) > 0
+
+has_asymmetry= "asymmetry_df" in locals() and len(asymmetry_df) > 0
+
 ```
 
 ```{python}
 
 #| label: "Time-Conversions"
 #| eval: True
+
+#Sleep 
 
 sleep_df["StartISO"] = pd.to_datetime(sleep_df["StartISO"], utc=True).dt.tz_convert(
     "America/Detroit"
@@ -221,6 +229,14 @@ sleep_df["EndISO"] = (
     .fillna(pd.to_datetime(sleep_df["End"], unit="s", utc=True))
 )
 
+sleep_df=sleep_df.drop(["hour","Before_or_After_noon"], axis=1)
+
+
+#Heart Rate
+
+hr_df["TimestampISO"] = pd.to_datetime(hr_df["TimestampISO"],errors="coerce", utc=True)
+
+
 hr_df["TimestampISO"] = (
     hr_df["TimestampISO"]
     .infer_objects()
@@ -233,8 +249,41 @@ hr_df["TimestampISO"] = (
     .infer_objects()
 )   
 
+# Gait
+gait_df["TimestampISO"] = (
+    gait_df["TimestampISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(gait_df["Timestamp"], unit="s", utc=False))
+)
 
-sleep_df=sleep_df.drop(["hour","Before_or_After_noon"], axis=1)
+# Double Support
+double_support_df["TimestampISO"] = (
+    double_support_df["TimestampISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(double_support_df["Timestamp"], unit="s", utc=False))
+)
+
+# Asymmetry
+
+asymmetry_df["TimestampISO"] = (
+    asymmetry_df["TimestampISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(asymmetry_df["Timestamp"], unit="s", utc=False))
+)
+
+
+
+
+```
+
+```{python}
+#|label: Sort dataframes by Time
+
+hr_df=hr_df.sort_values(by="TimestampISO")
+sleep_df = sleep_df.sort_values(by="StartISO")
+gait_df = gait_df.sort_values(by="TimestampISO")
+double_support_df = double_support_df.sort_values("TimestampISO")
+asymmetry_df = asymmetry_df.sort_values("TimestampISO")
 ```
 
 # Heart Rate
