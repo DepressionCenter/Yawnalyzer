@@ -589,6 +589,91 @@ else:
     display(Markdown(f"_**No Gait Data Exists**_"))
 ```
 
+# Double Support
+
+## General Information
+
+```{python}
+
+if has_double_support:
+    display(prettify_info(double_support_df))
+else:
+    display(Markdown(f"_**No Gait Data Exists**_"))
+
+```
+
+## Plot
+
+
+```{python}
+#| eval: true
+if has_double_support:
+    double_support_df["TimestampISO"] = (
+    pd.to_datetime(double_support_df["TimestampISO"], utc=True, errors="coerce")
+    .dt.tz_convert("America/Detroit")
+    .infer_objects()
+)   
+
+    origin = double_support_df['TimestampISO'].dropna().min().normalize()
+
+    double_support_df["week_idx"] = ((double_support_df["TimestampISO"] - origin) // pd.Timedelta(days=2)).astype(int)
+
+    double_support_df["WeekStart"] =origin + pd.to_timedelta(double_support_df["week_idx"]*2, unit="D")
+
+    weeks = sorted(double_support_df["WeekStart"].unique())
+    num_weeks = len(weeks)
+
+    figs = go.Figure()
+
+    # Add traces for each week, initially hidden
+    for i, w in enumerate(weeks):
+        # print(i)
+        # print(w)
+        temp = double_support_df[double_support_df["WeekStart"] == w].sort_values(by="TimestampISO")
+        visible = [False] * len(weeks)
+        visible[i] = True
+        
+        figs.add_trace(
+            go.Scatter(
+                x=temp["TimestampISO"],
+                y=temp["Value"],
+                mode="markers",
+                name=f"Week of {w.date()}",
+                marker=dict(color="blue"),
+                visible=(i == 0)  # only first visible by default
+            )
+        )
+
+        figs.update_xaxes(range=[double_support_df[double_support_df["WeekStart"] == w].min(),double_support_df[double_support_df["WeekStart"] == w].max()] )
+        figs.update_yaxes(range=[0,1])
+
+    # Dropdown menu
+    buttons = [
+        dict(
+            label=f"Double Support Data Week of\n{w.date()}",
+            method="update",
+            args=[
+                {"visible": [i == j for j in range(len(weeks))]},
+                {"title": f"Week of\n{w.date()}"}
+            ],
+        )
+        for i, w in enumerate(weeks)
+    ]
+
+    figs.update_layout(
+        yaxis_title="Double Support Data",
+        updatemenus=[{"buttons": buttons, "direction": "down"}],
+        title=f"Balance: Week of {weeks[0].date()}",
+        template="plotly_white"
+    )
+
+    figs.add_hline(y=0.5, line_dash="dash", line_color="green", annotation_text="Balanced Gait")
+    figs.show()
+else:
+    display(Markdown(f"_**No Double Support Data Exists**_"))
+```
+
+
 # Merge Sleep and HR data
 
 ```{python}
@@ -633,6 +718,7 @@ night = []
 start = []
 end = []
 average_hr = []
+sd_hr = []
 
 for index, _ in sleep_df.iterrows():
     ID = sleep_df["ID"][index]
@@ -645,7 +731,9 @@ for index, _ in sleep_df.iterrows():
     night.append(sleep_day)
 
     aveHR = hr_sorted_df["HR"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)).mean()
+    std_hr = hr_sorted_df["HR"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)).std()
     average_hr.append(aveHR)
+    sd_hr.append(std_hr)
     # new_df["AverageHR"] = new_order["HR"].where(
     #     (new_order["GlobalTime"] >= start_time)
     # ).mean()
@@ -655,7 +743,8 @@ hr_dictionary = {
     'Night_of_Sleep': night,
     'Start_Time': start,
     'End_Time': end,
-    'Mean_HR_During_Period':average_hr
+    'Mean_HR_Present_During_Period':average_hr,
+    'Standard_Deviation_of_Present_HR_During Period': sd_hr
 }
 
 HR_summary_df = pd.DataFrame(hr_dictionary)
@@ -668,5 +757,25 @@ HR_summary_df.to_csv(csv_name)
 
 ```{python}
 prettify_info(HR_summary_df)
+
+```
+
+
+
+
+```{python}
+new_presence_row=pd.DataFrame([{
+    "ID": RID,
+    "HR_Present": has_hr,
+    "Sleep_Present": has_sleep,
+    "Double_Support_Present": has_double_support,
+    "Asymmetry_Present": has_asymmetry 
+}])
+
+
+presence_df = pd.concat([presence_df, new_presence_row], ignore_index=True)
+
+presence_df = presence_df.drop_duplicates(subset=["ID"], keep="last").to_csv(os.path.join(PathKeeper.data_log_path,"Data_Presence_Log.csv"), index=False)
+
 
 ```
