@@ -382,7 +382,7 @@ if not df_asymmetry.empty:
 if not df_support.empty:
     df_support = df_support[
         survey_meta_data + [col for col in df_support.columns if col not in meta_data]
-    ]
+    ].rename(columns={'Value': 'Percentage'})
     df_support.to_csv(
         os.path.join(PathKeeper.merged_data_path, "double_support_collapsed.csv"),
         index_label="index_1",
