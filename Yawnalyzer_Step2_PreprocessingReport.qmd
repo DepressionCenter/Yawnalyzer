@@ -114,7 +114,7 @@ def prettify_info(df, memory_usage=False, deep=True, sort_by_nulls=False, show_u
     info_df["75%"] =  info_df["Column"].map(ThirdQuarter).infer_objects().fillna("")
     info_df["Max"] =  info_df["Column"].map(Maximum).infer_objects().fillna("")
   
-  base_cols = ["Column", "Total Count","Not-Nulls Count","Missing Count"]
+  base_cols = ["Total Count","Not-Nulls Count","Missing Count"]
   uniqueness_cols = ["Unique Count"] if show_unique else []
   stat_cols = ["Means", "Median", "Standard Deviation", "Min", "25%", "75%", "Max"] if show_stats else []
   info_df = info_df[base_cols + uniqueness_cols + stat_cols + ["Type"]]
@@ -173,6 +173,8 @@ has_gait ="gait_df" in locals() and len(gait_df) > 0
 has_double_support ="double_support_df" in locals() and len(double_support_df) > 0
 
 has_asymmetry= "asymmetry_df" in locals() and len(asymmetry_df) > 0
+
+overall_summary = {}
 
 ```
 
@@ -819,6 +821,49 @@ csv_name = "HR_Summary_"+RID+".csv"
 HR_summary_df.to_csv(os.path.join(PathKeeper.summarized_data_path,csv_name))
 ```
 
+```{python}
+
+earliest_day =  sleep_df["Night_of_Sleep"].min()
+latest_day = sleep_df["Night_of_Sleep"].max()
+
+sleep_days_df = pd.DataFrame({
+    "GlobalDay": pd.date_range(
+        start=earliest_day,
+        end=latest_day,
+        freq="1D"
+    )
+}
+)
+
+sleep_all_df = pd.merge(sleep_days_df, sleep_df, left_on="GlobalDay", right_on="Night_of_Sleep", how="left").sort_values(["GlobalDay", "StartISO"])
+
+sleep_all_df["ID"] = sleep_all_df["ID"].fillna(RID)
+
+sleep_summary_df = pd.DataFrame()
+
+for date, dataframe in sleep_all_df.groupby("GlobalDay"):
+    if dataframe["Duration"].isna().all():
+        dataframe["Asleep_Time"] = pd.NA
+        dataframe["AwakeTime"] = pd.NA
+        dataframe["Date"] = date
+    else:
+        dataframe["Asleep_Time"] = dataframe["Duration"].sum()
+        dataframe["Awake_Time"] =  dt.timedelta(days=1) -dataframe["Asleep_Time"]
+        dataframe["Date"] = date
+    sleep_summary_df = pd.concat([sleep_summary_df, dataframe], ignore_index=True) 
+
+sleep_summary_df = sleep_summary_df[["ID", "GlobalDay", "Asleep_Time", "Awake_Time"]].drop_duplicates("GlobalDay").rename(columns={"GlobalDay":"Day_of_Sleep"})
+
+overall_summary["Days_Missing_Sleep"] = sleep_summary_df["Asleep_Time"].isnull().sum()
+
+overall_summary["Prop_Missing_Sleep"] = round(((sleep_summary_df["Asleep_Time"].isnull().sum())/len(sleep_summary_df)),2)
+
+
+csv_name = "Sleep_Summary_"+RID+".csv"
+
+sleep_summary_df.to_csv(os.path.join(PathKeeper.summarized_data_path,csv_name))
+
+```
 
 ```{python}
 prettify_info(HR_summary_df)
