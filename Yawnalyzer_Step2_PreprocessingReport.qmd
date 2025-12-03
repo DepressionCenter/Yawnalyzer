@@ -205,6 +205,31 @@ sleep_df["EndISO"] = (
     .fillna(pd.to_datetime(sleep_df["End"], unit="s", utc=True))
 )
 
+sleep_df = sleep_df.sort_values(by="StartISO")
+
+sleep_df["gap_seconds"]  = (
+    sleep_df.groupby("ID")["EndISO"].shift().rsub(sleep_df["StartISO"]).dt.total_seconds()
+    )
+sleep_df["gap_hours"] = (sleep_df["gap_seconds"]/3600) 
+
+sleep_df["Session"] = sleep_df["gap_hours"].isna() | (sleep_df["gap_hours"] >=2)
+
+sleep_df["session_id"] = sleep_df["Session"].cumsum()
+
+sleep_df = (
+    sleep_df.groupby(["session_id",'ID', 'submission_date', 'file_type', 'filename']).agg(
+        ID = ("ID", "first"),
+        submission_date = ('submission_date', "first"), 
+        file_type = ('file_type',"first"),
+        filename=('filename', 'first'),
+        StartISO =('StartISO', "min"),
+        EndISO = ('EndISO', "max"),
+        Start = ('Start', "min"),
+        End = ('End', "max")
+    )
+     .reset_index(drop=True)
+)
+
 sleep_df["Duration"] = sleep_df["EndISO"] - sleep_df["StartISO"]
 
 sleep_df["hour"] = sleep_df["EndISO"].dt.hour
