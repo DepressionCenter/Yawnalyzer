@@ -470,7 +470,6 @@ else:
 
 ```{python}
 #| eval: True
-#| eval: False
 #| echo: false
 #| warning: false
 #| message: false
