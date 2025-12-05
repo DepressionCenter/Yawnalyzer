@@ -10,4 +10,5 @@ dependencies = [
     "pandas>=2.3.3",
     "papermill>=2.6.0",
     "plotly>=6.5.0",
+    "session-info>=1.0.1",
 ]
