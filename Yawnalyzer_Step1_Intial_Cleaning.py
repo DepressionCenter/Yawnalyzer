@@ -77,8 +77,20 @@ vars_used = [
     "failed_participants",
     "_",
     "vars_used",
-    "particpant_id_list"
+    "particpant_id_list",
+    "number_pattern"
 ]
+
+numeric_pattern = re.compile(r"^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?")
+
+def extract_numeric(response):
+    numeric_response = numeric_pattern.match(response)
+
+    if not numeric_response:
+        return response
+    number = float(numeric_response.group(0))
+    return int(number) if number.is_integer() else number
+
 
 df_sleep_list = []
 df_gait_list = []
@@ -144,7 +156,7 @@ for participant in os.listdir(PathKeeper.inital_path):
                 del s
                 found_any = True
 
-        if individual_file.endswith("sleep.csv"):
+        if individual_file.endswith("_sleep.csv"):
             print(individual_file)
             if individual_file.startswith("combined"):
                 continue
@@ -160,7 +172,7 @@ for participant in os.listdir(PathKeeper.inital_path):
                 df_sleep_list.append(s)
                 del s
                 found_any = True
-        elif individual_file.endswith("heartrate.csv"):
+        elif individual_file.endswith("_heartrate.csv"):
             print(individual_file)
             if individual_file.startswith("combined"):
                 continue
@@ -176,7 +188,7 @@ for participant in os.listdir(PathKeeper.inital_path):
                 df_hr_list.append(s)
                 del s
                 found_any = True
-        elif individual_file.endswith("gait.csv"):
+        elif individual_file.endswith("_gait.csv"):
             print(individual_file)
             if individual_file.startswith("combined"):
                 continue
@@ -192,7 +204,7 @@ for participant in os.listdir(PathKeeper.inital_path):
                 df_gait_list.append(s)
                 del s
                 found_any = True
-        elif individual_file.endswith("asymmetry.csv"):
+        elif individual_file.endswith("_asymmetry.csv"):
             print(individual_file)
             if individual_file.startswith("combined"):
                 continue
@@ -208,7 +220,7 @@ for participant in os.listdir(PathKeeper.inital_path):
                 df_asymmetry_list.append(s)
                 del s
                 found_any = True
-        elif individual_file.endswith("support.csv"):
+        elif individual_file.endswith("_support.csv"):
             print(individual_file)
             if individual_file.startswith("combined"):
                 continue
@@ -312,7 +324,7 @@ if df_watch_or_phone_list:
         current_data["End"] = end_value
         new_rows.append(current_data)
 
-        watch_or_phone_sleep_df2 = pd.DataFrame(new_rows)
+        watch_or_phone_sleep_df = pd.DataFrame(new_rows)
 
 
 if df_sleep_list:
@@ -353,7 +365,7 @@ meta_data = ["ID", "submission_date", "file_type"]
 survey_meta_data = ["ID", "file_type"]
 
 
-if not df_cognitive_survey.empty and df_survey.empty:
+if not df_cognitive_survey.empty and not df_survey.empty:
     df_all_surveys = pd.concat([df_cognitive_survey, df_survey], axis=0)
     # if df_all_surveys_list:
     #     df_all_surveys_list = pd.concat(df_all_surveys_list, ignore_index=True)
@@ -377,8 +389,16 @@ if not df_survey.empty:
         survey_meta_data
         + [col for col in df_survey.columns if col not in survey_meta_data]
     ]
-    df_survey.to_csv(
-        os.path.join(PathKeeper.merged_data_path, "survey_collapsed.csv"),
+    
+    df_sleep_survey = df_survey[df_survey["file_type"] == "Sleep"].rename(columns={'Question1': 'Sleep01','Question2': 'Sleep02','Question3': 'Sleep03'})
+    df_fatigue_survey = df_survey[df_survey["file_type"] == "Fatigue"].rename(columns={'Question1': 'Physical_Fatigue','Question2': 'Brain_Fatigue','Question3': 'Sleepiness'})
+    
+    df_sleep_survey.to_csv(
+        os.path.join(PathKeeper.merged_data_path, "sleep_survey_collapsed.csv"),
+        index_label="index_1",
+    )
+    df_fatigue_survey.to_csv(
+        os.path.join(PathKeeper.merged_data_path, "fatigue_survey_collapsed.csv"),
         index_label="index_1",
     )
 if not df_cognitive_survey.empty:
@@ -386,7 +406,7 @@ if not df_cognitive_survey.empty:
         survey_meta_data
         + [col for col in df_cognitive_survey.columns if col not in survey_meta_data]
     ]
-    df_cognitive_survey.to_csv(
+    df_cognitive_survey.rename(columns={'Question1': 'Cognitive01','Question2': 'Cognitive02','Question3': 'Pain','Question4': 'Depression'}).to_csv(
         os.path.join(PathKeeper.merged_data_path, "cog_collapsed.csv"),
         index_label="index_1",
     )
@@ -395,7 +415,6 @@ if not df_gait.empty:
     df_gait = df_gait[
         meta_data + [col for col in df_gait.columns if col not in meta_data]
     ].rename(columns={'Value': 'Balance'})
-
     df_gait.to_csv(
         os.path.join(PathKeeper.merged_data_path, "gait_collapsed.csv"),
         index_label="index_1",
@@ -418,7 +437,6 @@ if not df_support.empty:
         os.path.join(PathKeeper.merged_data_path, "double_support_collapsed.csv"),
         index_label="index_1",
     )
-
 
 if not df_all_surveys.empty:
     df_all_surveys = df_all_surveys[
@@ -444,16 +462,7 @@ if not df_all_surveys.empty:
                 quest_name, quest_value = val.split(":", 1)
                 quest_name = quest_name.strip()
                 quest_value = quest_value.strip()
-                reg_arg = re.match(r"^(-?\d+(\.\d+)?)", quest_value)
-
-                if reg_arg:
-                    parsed[quest_name] = (
-                        float(reg_arg.group(1))
-                        if "." in reg_arg.group(1)
-                        else int(reg_arg.group(1))
-                    )
-                else:
-                    parsed[quest_name] = quest_value
+                parsed[quest_name] = extract_numeric(quest_value)
             else:
                 parsed[quest_name] = val
         rows_fulltext.append({**main_df, **parsed})
