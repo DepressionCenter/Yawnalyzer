@@ -96,28 +96,30 @@ def prettify_info(df, memory_usage=False, deep=True, sort_by_nulls=False, show_u
     })
   if show_unique:
     info_df["Unique Count"] = df.nunique(dropna=True)
+  
   if show_stats:
     numeric_cols = df.select_dtypes(include=[np.number])
-    means = numeric_cols.mean()#.round(5)
-    medians = numeric_cols.median()#.round(5)
-    stds = numeric_cols.std()#.round(5)
-    Minimum= numeric_cols.min()
-    FirstQuarter= numeric_cols.quantile(0.25)
-    ThirdQuarter= numeric_cols.quantile(0.75)
-    Maximum = numeric_cols.max()
 
+    sum_stats_dictionary ={
+        "Means" : numeric_cols.mean(),#.round(5)
+        "Median" : numeric_cols.median(),#.round(5)
+        "Standard Deviation" : numeric_cols.std(),#.round(5)
+        "Min": numeric_cols.min(),
+        "25%": numeric_cols.quantile(0.25),
+        "75%": numeric_cols.quantile(0.75),
+        "Max": numeric_cols.max()
+    }
 
-    info_df["Means"] =  info_df["Column"].map(means).infer_objects().fillna("")
-    info_df["Median"] =  info_df["Column"].map(medians).infer_objects().fillna("")
-    info_df["Standard Deviation"] =  info_df["Column"].map(stds).infer_objects().fillna("")
-    info_df["Min"] =  info_df["Column"].map(Minimum).fillna("")
-    info_df["25%"] =  info_df["Column"].map(FirstQuarter).infer_objects().fillna("")
-    info_df["75%"] =  info_df["Column"].map(ThirdQuarter).infer_objects().fillna("")
-    info_df["Max"] =  info_df["Column"].map(Maximum).infer_objects().fillna("")
-  
+    for stat_name, stat_values in sum_stats_dictionary.items():
+        valid_numeric_cols = set(stat_values.index)
+
+        info_df[stat_name] = info_df["Column"].apply(
+            lambda col: stat_values[col] if col in valid_numeric_cols else "Not Applicable"
+        )
+
   base_cols = ["Total Count","Not-Nulls Count","Missing Count"]
   uniqueness_cols = ["Unique Count"] if show_unique else []
-  stat_cols = ["Means", "Median", "Standard Deviation", "Min", "25%", "75%", "Max"] if show_stats else []
+  stat_cols = list(sum_stats_dictionary.keys()) if show_stats else []
   info_df = info_df[base_cols + uniqueness_cols + stat_cols + ["Type"]]
 
   if memory_usage:
