@@ -78,9 +78,9 @@ for id in hr_collapsed_data:
     print("Will write:", output_path.resolve())
 
     render_report(
-        qmd="Yawnalyzer_Step2_PreprocessingReport.qmd",
+        qmd=Path("Yawnalyzer_Step2_PreprocessingReport.qmd"),
         out_html=report_html,
-        out_dir=PathKeeper.report_path,
+        out_dir=Path(PathKeeper.report_path),
         param_name="RID",
         rid_value=id,
     )
