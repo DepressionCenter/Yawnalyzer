@@ -160,12 +160,69 @@ double_support_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"double
 
 asymmetry_df =pd.read_csv(os.path.join(PathKeeper.merged_data_path,"asymmetry_collapsed.csv"), index_col=["index_1"])
 
+fatigue_survey_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path, "fatigue_survey_collapsed.csv"), index_col=["index_1"]
+)
 
-hr_df = hr_df[hr_df["ID"] == RID]
-sleep_df = sleep_df[sleep_df["ID"] == RID]
-gait_df = gait_df[gait_df["ID"] == RID]
-double_support_df = double_support_df[double_support_df["ID"] == RID]
-asymmetry_df = asymmetry_df[asymmetry_df["ID"] == RID]
+cognitive_survey_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path, "cog_collapsed.csv"), index_col=["index_1"]
+)
+
+sleep_survey_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path, "sleep_survey_collapsed.csv"), index_col=["index_1"]
+)
+
+hr_df = hr_df[hr_df["ID"] == RID].copy()
+sleep_df = sleep_df[sleep_df["ID"] == RID].copy()
+gait_df = gait_df[gait_df["ID"] == RID].copy()
+double_support_df = double_support_df[double_support_df["ID"] == RID].copy()
+asymmetry_df = asymmetry_df[asymmetry_df["ID"] == RID].copy()
+sleep_survey_df = sleep_survey_df[sleep_survey_df["ID"] == RID].copy()
+cognitive_survey_df = cognitive_survey_df[cognitive_survey_df["ID"] == RID].copy()
+fatigue_survey_df = fatigue_survey_df[fatigue_survey_df["ID"] == RID].copy()
+
+all_surveys_df = sleep_survey_df.drop("Question4", axis=1).merge(cognitive_survey_df, how="outer")
+
+all_surveys_df = all_surveys_df.merge(fatigue_survey_df.drop("Question4", axis=1), how="outer").drop('DATE_KEY,ANSWERS', axis=1)
+
+all_surveys_df["Sleep03"] = all_surveys_df["Sleep03"].str.strip().replace("Sleep03: No new symptoms","Sleep03: 0 = No new symptoms")
+
+
+all_surveys_df[["survey_date", "survey_type"]] = all_surveys_df["Survey"].str.rsplit("_", n=1, expand=True)
+
+cols = ['Sleep01', 'Sleep02', 'Sleep03', 'Cognitive01','Cognitive02', "Pain",'Depression', 'Physical_Fatigue', 'Brain_Fatigue', 'Sleepiness']
+
+
+for c in cols:
+    col_as_series = all_surveys_df[c].fillna("").astype(str)
+    non_missing_index = col_as_series.str.contains(":")
+    non_missing_series = col_as_series.str.split(":", n=1, expand=True)
+    non_missing_df = non_missing_series.reindex(columns=[0,1])
+    non_missing_df = non_missing_df.apply(lambda col: col.str.strip())
+
+    all_surveys_df[f"{c}_question"] = np.where(
+        non_missing_index,
+        non_missing_df[0],
+        f"{c}_question"
+    )  
+
+    all_surveys_df[f"{c}_value"] = np.where(
+        non_missing_index,
+        non_missing_df[1],
+        np.nan
+    )
+    
+    all_surveys_df[f"{c}_value"] = ( all_surveys_df[f"{c}_value"].astype(str).str.extract(r"(\d+)").astype("Int64"))
+
+all_surveys_df = all_surveys_df.drop(['Sleep01', 'Sleep02', 'Sleep03', 'Cognitive01','Cognitive02','Pain','Depression', 'Physical_Fatigue', 'Brain_Fatigue', 'Sleepiness'], axis=1)
+
+cols_to_drop = [col for col in all_surveys_df.columns if "_question" in col]
+
+all_surveys_df = all_surveys_df.drop(columns=cols_to_drop)
+all_surveys_df.columns = all_surveys_df.columns.str.replace("_value","")
+
+cognitive_survey_df = all_surveys_df[all_surveys_df["survey_type"] == "Cognitive"].dropna(axis=1, how="all").drop(columns=["survey_type"])
+
+fatigue_survey_df = all_surveys_df[all_surveys_df["survey_type"] == "Fatigue"].dropna(axis=1, how="all").drop(columns=["survey_type"])
+
+sleep_survey_df  = all_surveys_df[all_surveys_df["survey_type"] == "Sleep"].dropna(axis=1, how="all").drop(columns=["survey_type"])
 
 has_hr ="hr_df" in locals() and len(hr_df) > 0
 
@@ -177,8 +234,13 @@ has_double_support ="double_support_df" in locals() and len(double_support_df) >
 
 has_asymmetry= "asymmetry_df" in locals() and len(asymmetry_df) > 0
 
+has_cognitive_survey= "cognitive_survey_df" in locals() and len(cognitive_survey_df) > 0
+has_fatique_survey= "fatigue_survey_df" in locals() and len(fatigue_survey_df) > 0
+has_sleep_survey= "sleep_survey_df" in locals() and len(sleep_survey_df) > 0
+
 overall_summary = {}
 
+del non_missing_df, non_missing_index, non_missing_series, col_as_series, cols, cols_to_drop, c
 ```
 
 ```{python}
@@ -194,6 +256,7 @@ overall_summary = {}
 sleep_df["StartISO"] = pd.to_datetime(sleep_df["StartISO"], utc=True).dt.tz_convert(
     "America/Detroit"
 )
+
 sleep_df["EndISO"] = pd.to_datetime(sleep_df["EndISO"], utc=True).dt.tz_convert(
     "America/Detroit"
 )
@@ -232,7 +295,7 @@ sleep_df = (
         Start = ('Start', "min"),
         End = ('End', "max")
     )
-     .reset_index(drop=True)
+    .reset_index(drop=True)
 )
 
 sleep_df["Duration"] = sleep_df["EndISO"] - sleep_df["StartISO"]
@@ -309,6 +372,23 @@ asymmetry_df["TimestampISO"] = (
     .fillna(pd.to_datetime(asymmetry_df["Timestamp"], unit="s", utc=False))
 )
 
+# Cognitive survey
+
+cognitive_survey_df["Timestamp"] = pd.to_datetime(cognitive_survey_df["Timestamp"],errors="coerce", utc=True).dt.tz_convert(
+    "America/Detroit"
+)
+
+# Fatigue survey
+
+fatigue_survey_df["Timestamp"] = pd.to_datetime(fatigue_survey_df["Timestamp"],errors="coerce", utc=True).dt.tz_convert(
+    "America/Detroit"
+)
+
+# Sleep survey
+
+sleep_survey_df["Timestamp"] = pd.to_datetime(sleep_survey_df["Timestamp"],errors="coerce", utc=True).dt.tz_convert(
+    "America/Detroit"
+)
 
 
 
@@ -325,6 +405,10 @@ sleep_df = sleep_df.sort_values(by="StartISO")
 gait_df = gait_df.sort_values(by="TimestampISO")
 double_support_df = double_support_df.sort_values("TimestampISO")
 asymmetry_df = asymmetry_df.sort_values("TimestampISO")
+cognitive_survey_df = cognitive_survey_df.sort_values("Timestamp")
+fatigue_survey_df = fatigue_survey_df.sort_values("Timestamp") 
+sleep_survey_df = sleep_survey_df.sort_values("Timestamp")tt
+
 ```
 
 # Heart Rate
@@ -358,14 +442,18 @@ else:
 if has_hr:
     origin = hr_df['TimestampISO'].dropna().min().normalize()
 
-    hr_df["week_idx"] = ((hr_df["TimestampISO"] - origin) // pd.Timedelta(days=2)).astype(int)
+    hr_df["week_idx"] = ((hr_df["TimestampISO"] - origin) // pd.Timedelta(days=7)).astype(int)
 
-    hr_df["WeekStart"] =origin + pd.to_timedelta(hr_df["week_idx"]*2, unit="D")
+    hr_df["WeekStart"] =origin + pd.to_timedelta(hr_df["week_idx"]*7, unit="D")
 
     weeks = sorted(hr_df["WeekStart"].unique())
     num_weeks = len(weeks)
 
     figs = go.Figure()
+    week_ranges = {
+        w:[w, w+pd.Timedelta(days=7)]
+        for w in weeks
+    }
 
     # Add traces for each week, initially hidden
     for i, w in enumerate(weeks):
@@ -416,7 +504,6 @@ else:
 ```{python}
 
 #| eval: True
-#| #| eval: False
 #| echo: false
 #| warning: false
 #| message: false
@@ -727,6 +814,20 @@ else:
 ```
 
 
+# Surveys
+
+## Cognitive
+### General Information
+
+```{python}
+
+if has_cognitive_survey:
+    display(prettify_info(cognitive_survey_df))
+else:
+    display(Markdown(f"_**No Cognitve Survey Responses Exists**_"))
+
+```
+
 # Merge Sleep and HR data
 
 ```{python}
@@ -805,7 +906,7 @@ HR_summary_df = pd.DataFrame(hr_dictionary)
 
 csv_name = "HR_Summary_"+RID+".csv"
 
-HR_summary_df.to_csv(os.path.join(PathKeeper.summarized_data_path,csv_name))
+HR_summary_df.dropna(subset=["Night_of_Sleep"]).to_csv(os.path.join(PathKeeper.summarized_data_path,csv_name), index=False)
 ```
 
 ```{python}
@@ -822,7 +923,8 @@ sleep_days_df = pd.DataFrame({
 }
 )
 
-sleep_df2 = sleep_df.copy()
+sleep_df2 = sleep_df.dropna(subset=["Night_of_Sleep"]).copy()
+
 sleep_df2["Night_of_Sleep"] = pd.to_datetime(sleep_df["Night_of_Sleep"])
 
 sleep_all_df = pd.merge(sleep_days_df, sleep_df2, left_on="GlobalDay", right_on="Night_of_Sleep", how="left").sort_values(["GlobalDay", "StartISO"])
@@ -851,7 +953,7 @@ overall_summary["Prop_Missing_Sleep"] = round(((sleep_summary_df["Asleep_Time"].
 
 csv_name = "Sleep_Summary_"+RID+".csv"
 
-sleep_summary_df.to_csv(os.path.join(PathKeeper.summarized_data_path,csv_name))
+sleep_summary_df.to_csv(os.path.join(PathKeeper.summarized_data_path,csv_name), index=False)
 
 ```
 
