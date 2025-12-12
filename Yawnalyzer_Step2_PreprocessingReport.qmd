@@ -235,7 +235,7 @@ has_double_support ="double_support_df" in locals() and len(double_support_df) >
 has_asymmetry= "asymmetry_df" in locals() and len(asymmetry_df) > 0
 
 has_cognitive_survey= "cognitive_survey_df" in locals() and len(cognitive_survey_df) > 0
-has_fatique_survey= "fatigue_survey_df" in locals() and len(fatigue_survey_df) > 0
+has_fatigue_survey= "fatigue_survey_df" in locals() and len(fatigue_survey_df) > 0
 has_sleep_survey= "sleep_survey_df" in locals() and len(sleep_survey_df) > 0
 
 overall_summary = {}
@@ -829,6 +829,7 @@ else:
 # Surveys
 
 ## Cognitive
+
 ### General Information
 
 ```{python}
@@ -908,7 +909,7 @@ else:
 #| warning: false
 #| message: false
 
-if has_fatique_survey:
+if has_fatigue_survey:
     display(prettify_info(fatigue_survey_df))
 else:
     display(Markdown(f"_**No Fatigue Survey Responses Exists**_"))
@@ -932,7 +933,7 @@ fatigue_survey_long_df["survey_date"] = (
 
 ####
 
-if has_fatique_survey:
+if has_fatigue_survey:
     fatigue_survey_long_df=fatigue_survey_long_df.sort_values(["survey_date", "Timestamp"])
     fig = px.line(
         fatigue_survey_long_df,
@@ -1159,7 +1160,7 @@ new_presence_row=pd.DataFrame([{
     "Double_Support_Present": has_double_support,
     "Asymmetry_Present": has_asymmetry, 
     "Cognitive_Survey_Present": has_cognitive_survey,
-    "Fatigue_Survey_Present": has_fatique_survey,
+    "Fatigue_Survey_Present": has_fatigue_survey,
     "Sleep_Survey_Present": has_sleep_survey
 }])
 
