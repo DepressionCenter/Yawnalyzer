@@ -114,7 +114,7 @@ def prettify_info(df, memory_usage=False, deep=True, sort_by_nulls=False, show_u
         valid_numeric_cols = set(stat_values.index)
 
         info_df[stat_name] = info_df["Column"].apply(
-            lambda col: stat_values[col] if col in valid_numeric_cols else "Not Applicable"
+            lambda col: stat_values[col] if col in valid_numeric_cols else "NA"
         )
 
   base_cols = ["Total Count","Not-Nulls Count","Missing Count"]
@@ -240,6 +240,8 @@ has_sleep_survey= "sleep_survey_df" in locals() and len(sleep_survey_df) > 0
 
 overall_summary = {}
 
+overall_summary["ID"] =  RID;
+
 del non_missing_df, non_missing_index, non_missing_series, col_as_series, cols, cols_to_drop, c
 ```
 
@@ -311,16 +313,16 @@ sleep_df["Night_of_Sleep"] = np.where(
 )
 
 sleep_df["Duration"] = sleep_df["Duration"].where(
-    sleep_df["Duration"] <= pd.Timedelta(days=1),
+    sleep_df["Duration"] <= pd.Timedelta(hours=24),
 )
 
 sleep_df["Night_of_Sleep"] = sleep_df["Night_of_Sleep"].where(
     sleep_df["Duration"].notna()
 )
 
-# sleep_df["Night_of_Sleep"] = pd.to_datetime(
-#     sleep_df["Night_of_Sleep"], utc=True
-# ).dt.tz_convert("America/Detroit")
+sleep_df["Night_of_Sleep"] = pd.to_datetime(
+    sleep_df["Night_of_Sleep"], utc=True,
+    errors="coerce").dt.tz_convert("America/Detroit")
 
 #sleep_df["Night_of_Sleep"] = sleep_df["Night_of_Sleep"].dt.date
 
@@ -407,7 +409,7 @@ double_support_df = double_support_df.sort_values("TimestampISO")
 asymmetry_df = asymmetry_df.sort_values("TimestampISO")
 cognitive_survey_df = cognitive_survey_df.sort_values("Timestamp")
 fatigue_survey_df = fatigue_survey_df.sort_values("Timestamp") 
-sleep_survey_df = sleep_survey_df.sort_values("Timestamp")tt
+sleep_survey_df = sleep_survey_df.sort_values("Timestamp")
 
 ```
 
@@ -643,7 +645,7 @@ else:
 ### General Information
 
 ```{python}
-#| eval: False
+#| eval: True
 #| echo: false
 #| warning: false
 #| message: false
@@ -737,6 +739,11 @@ else:
 
 ```{python}
 
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
+
 if has_double_support:
     display(prettify_info(double_support_df))
 else:
@@ -748,7 +755,12 @@ else:
 
 
 ```{python}
-#| eval: true
+
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
+
 if has_double_support:
     double_support_df["TimestampISO"] = (
     pd.to_datetime(double_support_df["TimestampISO"], utc=True, errors="coerce")
@@ -821,6 +833,11 @@ else:
 
 ```{python}
 
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
+
 if has_cognitive_survey:
     display(prettify_info(cognitive_survey_df))
 else:
@@ -868,12 +885,22 @@ new_order = merge[['ID','GlobalTime', 'Asleep', 'HR']]
 
 
 ```{python}
+
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
+
 IDs = []
 night = []
 start = []
 end = []
 average_hr = []
 sd_hr = []
+ealiest_hr =[]
+latest_hr =[]
+earliest_timestamp=[]
+latest_timestamp = []
 
 for index, _ in sleep_df.iterrows():
     ID = sleep_df["ID"][index]
@@ -910,6 +937,11 @@ HR_summary_df.dropna(subset=["Night_of_Sleep"]).to_csv(os.path.join(PathKeeper.s
 ```
 
 ```{python}
+
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
 
 earliest_day =  sleep_df["Night_of_Sleep"].min()
 latest_day = sleep_df["Night_of_Sleep"].max()
@@ -958,6 +990,13 @@ sleep_summary_df.to_csv(os.path.join(PathKeeper.summarized_data_path,csv_name), 
 ```
 
 ```{python}
+
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
+
+
 prettify_info(HR_summary_df)
 
 ```
@@ -966,6 +1005,13 @@ prettify_info(HR_summary_df)
 
 
 ```{python}
+
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
+
+
 new_presence_row=pd.DataFrame([{
     "ID": RID,
     "HR_Present": has_hr,
@@ -1024,6 +1070,11 @@ with this program. If not, see <https://www.gnu.org/licenses/>.
 #### Session Info{.unnumbered .unlisted} 
 
 ```{python}
+
+#| label: Session_Information
+#| echo: false
+#| warning: false
+#| message: false
 
 session_info.show()
 
