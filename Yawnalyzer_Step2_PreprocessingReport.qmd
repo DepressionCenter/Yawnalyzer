@@ -841,15 +841,140 @@ else:
 if has_cognitive_survey:
     display(prettify_info(cognitive_survey_df))
 else:
-    display(Markdown(f"_**No Cognitve Survey Responses Exists**_"))
+    display(Markdown(f"_**No Cognitive Survey Responses Exists**_"))
 
+```
+
+### Plotting
+
+```{python}
+
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
+
+cognitive_survey_long_df = cognitive_survey_df.melt(id_vars=["ID","survey_date", "Timestamp"], value_vars=["Cognitive01","Cognitive02","Pain", "Depression"], var_name='Questions', value_name='Value')
+
+cognitive_survey_long_df["survey_date"] = (
+    pd.to_datetime(cognitive_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/New_York")
+)
+
+####
+
+if has_cognitive_survey:
+    cognitive_survey_long_df = cognitive_survey_long_df.sort_values(["survey_date", "Timestamp"])
+    fig = px.line(
+        cognitive_survey_long_df,
+        x="survey_date",
+        y="Value",
+        color="Questions",
+        facet_row="Questions",
+        markers=True
+    )
+    fig.for_each_annotation(
+    lambda a: a.update(text=a.text.split("=")[-1])
+    
+    )
+
+    # 1. Match all x-axes
+    fig.update_xaxes(matches="x")
+
+    # 2. Disable sliders everywhere
+    fig.update_xaxes(rangeslider_visible=False)
+
+    # 3. Enable slider ONLY on the bottom x-axis
+    bottom_xaxis = min(
+        fig.select_xaxes(),
+        key=lambda ax: ax.domain[0]
+    )
+    bottom_xaxis.rangeslider.visible = True
+    fig.update_layout(showlegend=False)
+
+
+
+    fig.show()
+else:
+    display(Markdown(f"_**No Cognitvie Survey Data Exists**_"))
+```
+
+## Fatigue
+### General Information
+
+```{python}
+
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
+
+if has_fatique_survey:
+    display(prettify_info(fatigue_survey_df))
+else:
+    display(Markdown(f"_**No Fatigue Survey Responses Exists**_"))
+
+```
+
+### Plotting
+
+```{python}
+
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
+
+fatigue_survey_long_df = fatigue_survey_df.melt(id_vars=["ID","survey_date", "Timestamp"], value_vars=[ 'Physical_Fatigue', 'Brain_Fatigue', 'Sleepiness'], var_name='Questions', value_name='Value')
+
+fatigue_survey_long_df["survey_date"] = (
+    pd.to_datetime(fatigue_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/New_York")
+)
+
+####
+
+if has_fatique_survey:
+    fatigue_survey_long_df=fatigue_survey_long_df.sort_values(["survey_date", "Timestamp"])
+    fig = px.line(
+        fatigue_survey_long_df,
+        x="survey_date",
+        y="Value",
+        color="Questions",
+        facet_row="Questions",
+        markers=True,
+    )
+    fig.for_each_annotation(
+    lambda a: a.update(text=a.text.split("=")[-1])
+    
+    )
+    
+    fig.update_xaxes(matches="x")
+
+    # 2. Disable sliders everywhere
+    fig.update_xaxes(rangeslider_visible=False)
+
+    # 3. Enable slider ONLY on the bottom x-axis
+    bottom_xaxis = min(
+        fig.select_xaxes(),
+        key=lambda ax: ax.domain[0]
+    )
+    fig.update_layout(showlegend=False)
+
+    bottom_xaxis.rangeslider.visible = True
+
+
+    fig.show()
+else:
+    display(Markdown(f"_**No Fatigue Survey Data Exists**_"))
 ```
 
 # Merge Sleep and HR data
 
 ```{python}
-#|label: Generate merged HR and Sleep dataframe 
-
+#| label: Generate merged HR and Sleep dataframe 
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
 
 earliest_time =  min(hr_df["TimestampISO"].min(), sleep_df["StartISO"].min())
 latest_time = max(hr_df["TimestampISO"].max(), sleep_df["EndISO"].max())
@@ -914,8 +1039,19 @@ for index, _ in sleep_df.iterrows():
 
     aveHR = hr_sorted_df["HR"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)).mean()
     std_hr = hr_sorted_df["HR"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)).std()
+    
+    first_hr_timestamp = hr_sorted_df["TimestampISO"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)&(hr_sorted_df["HR"].notna())).iloc[0],
+    last_hr_timestamp = hr_sorted_df["TimestampISO"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)&(hr_sorted_df["HR"].notna())).iloc[-1]
+    
+    first_hr = hr_sorted_df["HR"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)&(hr_sorted_df["HR"].notna())).iloc[0]
+    last_hr = hr_sorted_df["HR"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)&(hr_sorted_df["HR"].notna())).iloc[-1]
+
     average_hr.append(aveHR)
     sd_hr.append(std_hr)
+    ealiest_hr.append(first_hr)
+    latest_hr.append(last_hr)
+    earliest_timestamp.append(first_hr_timestamp)
+    latest_timestamp.append(last_hr_timestamp)
     # new_df["AverageHR"] = new_order["HR"].where(
     #     (new_order["GlobalTime"] >= start_time)
     # ).mean()
@@ -926,7 +1062,11 @@ hr_dictionary = {
     'Start_Time': start,
     'End_Time': end,
     'Mean_HR_Present_During_Period':average_hr,
-    'Standard_Deviation_of_Present_HR_During Period': sd_hr
+    'Standard_Deviation_of_Present_HR_During Period': sd_hr,
+    'Earliest_Recorded_HR': ealiest_hr,
+    'Earliest_Recorded_HR_Timestamp':earliest_timestamp,
+    'Latest_Recorded_HR': latest_hr,
+    'Latest_Recorded_HR_Timestamp': latest_timestamp,
 }
 
 HR_summary_df = pd.DataFrame(hr_dictionary)
@@ -1017,7 +1157,10 @@ new_presence_row=pd.DataFrame([{
     "HR_Present": has_hr,
     "Sleep_Present": has_sleep,
     "Double_Support_Present": has_double_support,
-    "Asymmetry_Present": has_asymmetry 
+    "Asymmetry_Present": has_asymmetry, 
+    "Cognitive_Survey_Present": has_cognitive_survey,
+    "Fatigue_Survey_Present": has_fatique_survey,
+    "Sleep_Survey_Present": has_sleep_survey
 }])
 
 
@@ -1025,7 +1168,9 @@ presence_df = pd.concat([presence_df, new_presence_row], ignore_index=True)
 
 presence_df.drop_duplicates(subset=["ID"], keep="last").to_csv(os.path.join(PathKeeper.data_log_path,"Data_Presence_Log.csv"), index=False)
 
-
+overall_summary_df=pd.DataFrame([overall_summary])
+csv_name = "Overall_Summary_"+RID+".csv"
+overall_summary_df.to_csv(os.path.join(PathKeeper.summarized_data_path,csv_name), index=False)
 ```
 
 ### Notices and Metainfo {.unnumbered .unlisted} 
