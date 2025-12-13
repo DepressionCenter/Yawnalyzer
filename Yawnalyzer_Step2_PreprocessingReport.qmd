@@ -302,6 +302,7 @@ sleep_df = (
 )
 
 sleep_df["Duration"] = sleep_df["EndISO"] - sleep_df["StartISO"]
+sleep_df["Duration_in_Minutes"] = sleep_df["Duration"].dt.total_seconds()/60
 
 sleep_df["hour"] = sleep_df["EndISO"].dt.hour
 
@@ -313,13 +314,14 @@ sleep_df["Night_of_Sleep"] = np.where(
     sleep_df["EndISO"].dt.date,
 )
 
-sleep_df["Duration"] = sleep_df["Duration"].where(
-    sleep_df["Duration"] <= pd.Timedelta(hours=24),
+sleep_df["Duration_in_Minutes"] = sleep_df["Duration_in_Minutes"].where(
+    sleep_df["Duration_in_Minutes"] <= (24*60), #24 hours of 60 minutes
 )
 
 sleep_df["Night_of_Sleep"] = sleep_df["Night_of_Sleep"].where(
-    sleep_df["Duration"].notna()
+    sleep_df["Duration_in_Minutes"].notna()
 )
+
 
 sleep_df["Night_of_Sleep"] = pd.to_datetime(
     sleep_df["Night_of_Sleep"], utc=True,
@@ -333,7 +335,7 @@ sleep_df["EndISO"] = (
     .fillna(pd.to_datetime(sleep_df["End"], unit="s", utc=True))
 )
 
-sleep_df=sleep_df.drop(["hour","Before_or_After_noon"], axis=1)
+sleep_df=sleep_df.drop(["hour","Before_or_After_noon","Duration"], axis=1)
 
 
 #Heart Rate
@@ -595,7 +597,6 @@ The blue line represents 8 hours of sleep.
 
 if has_sleep:
     sleep_temp_df = sleep_df.sort_values(by="Night_of_Sleep")
-    sleep_temp_df["Duration"] = (sleep_temp_df["Duration"]/60_000_000_000)
     sleep_temp_df['Sleep Session'] = sleep_temp_df.groupby('Night_of_Sleep').cumcount()
     sleep_temp_df["Sleep Session"] = "Session: " + (sleep_temp_df["Sleep Session"]+1).astype(str) 
 
@@ -608,7 +609,7 @@ if has_sleep:
         fig.add_trace(
             go.Bar(
                 x=filtered_df["Night_of_Sleep"],
-                y=filtered_df["Duration"],
+                y=filtered_df["Duration_in_Minutes"],
                 name=session     # ← now a proper string label
             )
         )
@@ -855,17 +856,18 @@ else:
 #| echo: false
 #| warning: false
 #| message: false
+if has_cognitive_survey:
+    cognitive_survey_long_df = cognitive_survey_df.melt(id_vars=["ID","survey_date", "Timestamp"], value_vars=["Cognitive01","Cognitive02","Pain", "Depression"], var_name='Questions', value_name='Value')
 
-cognitive_survey_long_df = cognitive_survey_df.melt(id_vars=["ID","survey_date", "Timestamp"], value_vars=["Cognitive01","Cognitive02","Pain", "Depression"], var_name='Questions', value_name='Value')
-
-cognitive_survey_long_df["survey_date"] = (
-    pd.to_datetime(cognitive_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/New_York")
-)
+    cognitive_survey_long_df["survey_date"] = (
+        pd.to_datetime(cognitive_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/New_York")
+    )
 
 ####
 
-if has_cognitive_survey:
+
     cognitive_survey_long_df = cognitive_survey_long_df.sort_values(["survey_date", "Timestamp"])
+    
     fig = px.line(
         cognitive_survey_long_df,
         x="survey_date",
@@ -925,16 +927,16 @@ else:
 #| echo: false
 #| warning: false
 #| message: false
+if has_fatigue_survey:
+    fatigue_survey_long_df = fatigue_survey_df.melt(id_vars=["ID","survey_date", "Timestamp"], value_vars=[ 'Physical_Fatigue', 'Brain_Fatigue', 'Sleepiness'], var_name='Questions', value_name='Value')
 
-fatigue_survey_long_df = fatigue_survey_df.melt(id_vars=["ID","survey_date", "Timestamp"], value_vars=[ 'Physical_Fatigue', 'Brain_Fatigue', 'Sleepiness'], var_name='Questions', value_name='Value')
-
-fatigue_survey_long_df["survey_date"] = (
-    pd.to_datetime(fatigue_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/New_York")
-)
+    fatigue_survey_long_df["survey_date"] = (
+        pd.to_datetime(fatigue_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/New_York")
+    )
 
 ####
 
-if has_fatigue_survey:
+
     fatigue_survey_long_df=fatigue_survey_long_df.sort_values(["survey_date", "Timestamp"])
     fig = px.line(
         fatigue_survey_long_df,
@@ -1108,13 +1110,13 @@ sleep_all_df["ID"] = sleep_all_df["ID"].fillna(RID)
 sleep_summary_df = pd.DataFrame()
 
 for date, dataframe in sleep_all_df.groupby("GlobalDay"):
-    if dataframe["Duration"].isna().all():
+    if dataframe["Duration_in_Minutes"].isna().all():
         dataframe["Asleep_Time"] = pd.NA
         dataframe["AwakeTime"] = pd.NA
         dataframe["Date"] = date
     else:
-        dataframe["Asleep_Time"] = dataframe["Duration"].sum()
-        dataframe["Awake_Time"] =  dt.timedelta(days=1) -dataframe["Asleep_Time"]
+        dataframe["Asleep_Time"] = dataframe["Duration_in_Minutes"].sum()
+        dataframe["Awake_Time"] =  (24*60) -dataframe["Asleep_Time"]
         dataframe["Date"] = date
     sleep_summary_df = pd.concat([sleep_summary_df, dataframe], ignore_index=True) 
 
