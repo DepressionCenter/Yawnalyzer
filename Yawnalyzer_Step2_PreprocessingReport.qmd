@@ -971,6 +971,74 @@ else:
     display(Markdown(f"_**No Fatigue Survey Data Exists**_"))
 ```
 
+## Sleepiness
+### General Information
+
+```{python}
+
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
+
+if has_sleep_survey:
+    display(prettify_info(fatigue_survey_df))
+else:
+    display(Markdown(f"_**No Sleep Survey Responses Exists**_"))
+
+```
+
+### Plotting
+
+```{python}
+
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
+if has_sleep_survey:
+    sleep_survey_long_df = sleep_survey_df.melt(id_vars=["ID","survey_date", "Timestamp"], value_vars=[ 'Sleep01', 'Sleep02', 'Sleep03'], var_name='Questions', value_name='Value')
+
+    sleep_survey_long_df["survey_date"] = (
+        pd.to_datetime(sleep_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/New_York")
+    )
+
+
+####
+    sleep_survey_long_df=sleep_survey_long_df.sort_values(["survey_date", "Timestamp"])
+    fig = px.line(
+        sleep_survey_long_df,
+        x="survey_date",
+        y="Value",
+        color="Questions",
+        facet_row="Questions",
+        markers=True,
+    )
+    fig.for_each_annotation(
+    lambda a: a.update(text=a.text.split("=")[-1])
+    
+    )
+    
+    fig.update_xaxes(matches="x")
+
+    # 2. Disable sliders everywhere
+    fig.update_xaxes(rangeslider_visible=False)
+
+    # 3. Enable slider ONLY on the bottom x-axis
+    bottom_xaxis = min(
+        fig.select_xaxes(),
+        key=lambda ax: ax.domain[0]
+    )
+    fig.update_layout(showlegend=False)
+
+    bottom_xaxis.rangeslider.visible = True
+
+
+    fig.show()
+else:
+    display(Markdown(f"_**No Sleep Survey Data Exists**_"))
+```
+
 # Merge Sleep and HR data
 
 ```{python}
