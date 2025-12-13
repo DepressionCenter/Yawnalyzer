@@ -184,8 +184,8 @@ all_surveys_df = all_surveys_df.merge(fatigue_survey_df.drop("Question4", axis=1
 
 all_surveys_df["Sleep03"] = all_surveys_df["Sleep03"].str.strip().replace("Sleep03: No new symptoms","Sleep03: 0 = No new symptoms")
 
-
-all_surveys_df[["survey_date", "survey_type"]] = all_surveys_df["Survey"].str.rsplit("_", n=1, expand=True)
+if "all_surveys_df" in locals() and len(all_surveys_df) >0:
+    all_surveys_df[["survey_date", "survey_type"]] = all_surveys_df["Survey"].str.rsplit("_", n=1, expand=True)
 
 cols = ['Sleep01', 'Sleep02', 'Sleep03', 'Cognitive01','Cognitive02', "Pain",'Depression', 'Physical_Fatigue', 'Brain_Fatigue', 'Sleepiness']
 
@@ -218,11 +218,12 @@ cols_to_drop = [col for col in all_surveys_df.columns if "_question" in col]
 all_surveys_df = all_surveys_df.drop(columns=cols_to_drop)
 all_surveys_df.columns = all_surveys_df.columns.str.replace("_value","")
 
-cognitive_survey_df = all_surveys_df[all_surveys_df["survey_type"] == "Cognitive"].dropna(axis=1, how="all").drop(columns=["survey_type"])
+if "all_surveys_df" in locals() and len(all_surveys_df) >0:
+    cognitive_survey_df = all_surveys_df[all_surveys_df["survey_type"] == "Cognitive"].dropna(axis=1, how="all").drop(columns=["survey_type"])
 
-fatigue_survey_df = all_surveys_df[all_surveys_df["survey_type"] == "Fatigue"].dropna(axis=1, how="all").drop(columns=["survey_type"])
+    fatigue_survey_df = all_surveys_df[all_surveys_df["survey_type"] == "Fatigue"].dropna(axis=1, how="all").drop(columns=["survey_type"])
 
-sleep_survey_df  = all_surveys_df[all_surveys_df["survey_type"] == "Sleep"].dropna(axis=1, how="all").drop(columns=["survey_type"])
+    sleep_survey_df  = all_surveys_df[all_surveys_df["survey_type"] == "Sleep"].dropna(axis=1, how="all").drop(columns=["survey_type"])
 
 has_hr ="hr_df" in locals() and len(hr_df) > 0
 
