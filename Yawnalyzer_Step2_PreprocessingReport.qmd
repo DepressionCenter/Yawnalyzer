@@ -356,27 +356,30 @@ hr_df["TimestampISO"] = (
 )   
 
 # Gait
+gait_df["TimestampISO"] = pd.to_datetime(gait_df["TimestampISO"], utc=False)
+
 gait_df["TimestampISO"] = (
     gait_df["TimestampISO"]
     .infer_objects()
-    .fillna(pd.to_datetime(gait_df["Timestamp"], unit="s", utc=False))
+    .fillna(pd.to_datetime(gait_df["Timestamp"], unit="s", utc=True).dt.tz_convert('America/New_York'))
 )
-
 # Double Support
+double_support_df["TimestampISO"] = pd.to_datetime(double_support_df["TimestampISO"], utc=False)
+
 double_support_df["TimestampISO"] = (
     double_support_df["TimestampISO"]
     .infer_objects()
-    .fillna(pd.to_datetime(double_support_df["Timestamp"], unit="s", utc=False))
+    .fillna(pd.to_datetime(double_support_df["Timestamp"], unit="s", utc=True).dt.tz_convert('America/New_York'))
 )
-
 # Asymmetry
+
+asymmetry_df["TimestampISO"] = pd.to_datetime(asymmetry_df["TimestampISO"], utc=False)
 
 asymmetry_df["TimestampISO"] = (
     asymmetry_df["TimestampISO"]
     .infer_objects()
-    .fillna(pd.to_datetime(asymmetry_df["Timestamp"], unit="s", utc=False))
+    .fillna(pd.to_datetime(asymmetry_df["Timestamp"], unit="s", utc=True).dt.tz_convert('America/New_York'))
 )
-
 # Cognitive survey
 
 cognitive_survey_df["Timestamp"] = pd.to_datetime(cognitive_survey_df["Timestamp"],errors="coerce", utc=True).dt.tz_convert(
