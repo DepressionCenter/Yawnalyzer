@@ -33,7 +33,9 @@ import os
 import datetime
 from pathlib import Path
 import subprocess
-import PathKeeper #File containing machine-specific paths
+import PathKeeper  # File containing machine-specific paths
+
+IDs_list = []
 
 
 def render_report(
@@ -63,17 +65,20 @@ def render_report(
         )
 
 
-hr_collapsed_data = pd.read_csv(
-    os.path.join(PathKeeper.merged_data_path, "hr_collapsed.csv")
-)
+for file in os.listdir(PathKeeper.merged_data_path):
+    if file.endswith("csv"):
+        current_file = pd.read_csv(
+            Path(os.path.join(PathKeeper.merged_data_path, file))
+        )
+        IDs_list.append(current_file)
 
-hr_collapsed_data = hr_collapsed_data["ID"].unique()
+id_df = pd.concat(IDs_list).sort_values("ID")
 
-for id in hr_collapsed_data:
+for id in id_df["ID"].unique():
     render_datetime = datetime.datetime.now().strftime("%Y_%m_%d_T%H_%M_%S")
     report_html = id + "_QualityContol_" + render_datetime + ".html"
     print(report_html)
-    
+
     output_path = Path(PathKeeper.report_path) / report_html
     print("Will write:", output_path.resolve())
 
