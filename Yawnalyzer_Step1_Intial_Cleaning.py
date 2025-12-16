@@ -83,6 +83,7 @@ vars_used = [
 
 numeric_pattern = re.compile(r"^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?")
 
+
 def extract_numeric(response):
     numeric_response = numeric_pattern.match(response)
 
@@ -324,7 +325,7 @@ if df_watch_or_phone_list:
         current_data["End"] = end_value
         new_rows.append(current_data)
 
-        watch_or_phone_sleep_df = pd.DataFrame(new_rows)
+        df_sleep = pd.DataFrame(new_rows)
 
 
 if df_sleep_list:
@@ -389,10 +390,21 @@ if not df_survey.empty:
         survey_meta_data
         + [col for col in df_survey.columns if col not in survey_meta_data]
     ]
-    
-    df_sleep_survey = df_survey[df_survey["file_type"] == "Sleep"].rename(columns={'Question1': 'Sleep01','Question2': 'Sleep02','Question3': 'Sleep03'})
-    df_fatigue_survey = df_survey[df_survey["file_type"] == "Fatigue"].rename(columns={'Question1': 'Physical_Fatigue','Question2': 'Brain_Fatigue','Question3': 'Sleepiness'})
-    
+
+    df_sleep_survey = df_survey[df_survey["file_type"] == "Sleep"]
+    df_sleep_survey = df_sleep_survey.rename(
+        columns={"Question1": "Sleep01", "Question2": "Sleep02", "Question3": "Sleep03"}
+    )
+
+    df_fatigue_survey = df_survey[df_survey["file_type"] == "Fatigue"]
+    df_fatigue_survey = df_fatigue_survey.rename(
+        columns={
+            "Question1": "Physical_Fatigue",
+            "Question2": "Brain_Fatigue",
+            "Question3": "Sleepiness",
+        }
+    )
+
     df_sleep_survey.to_csv(
         os.path.join(PathKeeper.merged_data_path, "sleep_survey_collapsed.csv"),
         index_label="index_1",
@@ -406,7 +418,14 @@ if not df_cognitive_survey.empty:
         survey_meta_data
         + [col for col in df_cognitive_survey.columns if col not in survey_meta_data]
     ]
-    df_cognitive_survey.rename(columns={'Question1': 'Cognitive01','Question2': 'Cognitive02','Question3': 'Pain','Question4': 'Depression'}).to_csv(
+    df_cognitive_survey.rename(
+        columns={
+            "Question1": "Cognitive01",
+            "Question2": "Cognitive02",
+            "Question3": "Pain",
+            "Question4": "Depression",
+        }
+    ).to_csv(
         os.path.join(PathKeeper.merged_data_path, "cog_collapsed.csv"),
         index_label="index_1",
     )
@@ -414,7 +433,7 @@ if not df_cognitive_survey.empty:
 if not df_gait.empty:
     df_gait = df_gait[
         meta_data + [col for col in df_gait.columns if col not in meta_data]
-    ].rename(columns={'Value': 'Balance'})
+    ].rename(columns={"Value": "Balance"})
     df_gait.to_csv(
         os.path.join(PathKeeper.merged_data_path, "gait_collapsed.csv"),
         index_label="index_1",
@@ -432,7 +451,7 @@ if not df_asymmetry.empty:
 if not df_support.empty:
     df_support = df_support[
         survey_meta_data + [col for col in df_support.columns if col not in meta_data]
-    ].rename(columns={'Value': 'Percentage'})
+    ].rename(columns={"Value": "Percentage"})
     df_support.to_csv(
         os.path.join(PathKeeper.merged_data_path, "double_support_collapsed.csv"),
         index_label="index_1",
