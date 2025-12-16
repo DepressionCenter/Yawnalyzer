@@ -325,7 +325,7 @@ sleep_df["Night_of_Sleep"] = sleep_df["Night_of_Sleep"].where(
 
 sleep_df["Night_of_Sleep"] = pd.to_datetime(
     sleep_df["Night_of_Sleep"], utc=True,
-    errors="coerce").dt.tz_convert("America/Detroit")
+    errors="coerce").dt.tz_convert("America/Detroit").dt.date
 
 #sleep_df["Night_of_Sleep"] = sleep_df["Night_of_Sleep"].dt.date
 
