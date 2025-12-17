@@ -7,14 +7,27 @@ author:
     affiliations: AFFILIATION
 date: last-modified
 date-format: "[Last Modified:] DD MMM YYYY"
+license: "GPL-3.0-or-later"
+copyright:
+    holder: "The Regents of the University of Michigan"
+    year: 2025
+rights: |
+    © 2025 The Regents of the University of Michigan.
+    
+    This file is part of Yawnalyzer.
+    
+    Yawnalyzer is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 format:
-  html:
-    toc: true
-    toc-depth: 3
-    code-fold: true
-    df-print: paged
-    embed-resources: true
-    html-math-method: mathjax
+    html:
+        toc: true
+        toc-depth: 3
+        code-fold: true
+        df-print: paged
+        embed-resources: true
+        html-math-method: mathjax
 jupyter: python3
 ---
 
@@ -114,7 +127,7 @@ def prettify_info(df, memory_usage=False, deep=True, sort_by_nulls=False, show_u
         valid_numeric_cols = set(stat_values.index)
 
         info_df[stat_name] = info_df["Column"].apply(
-            lambda col: stat_values[col] if col in valid_numeric_cols else "NA"
+            lambda col: stat_values[col] if col in valid_numeric_cols else " "
         )
 
   base_cols = ["Total Count","Not-Nulls Count","Missing Count"]
@@ -440,91 +453,21 @@ else:
 ## Plotting
 
 ```{python}
-
-#| label: "Plot_HR_Data_by_2-day_increments"
-#| eval: False
+#| label: Plot HR Values
+#| eval: true
 #| echo: false
 #| warning: false
 #| message: false
 
 if has_hr:
-    origin = hr_df['TimestampISO'].dropna().min().normalize()
-
-    hr_df["week_idx"] = ((hr_df["TimestampISO"] - origin) // pd.Timedelta(days=7)).astype(int)
-
-    hr_df["WeekStart"] =origin + pd.to_timedelta(hr_df["week_idx"]*7, unit="D")
-
-    weeks = sorted(hr_df["WeekStart"].unique())
-    num_weeks = len(weeks)
-
-    figs = go.Figure()
-    week_ranges = {
-        w:[w, w+pd.Timedelta(days=7)]
-        for w in weeks
-    }
-
-    # Add traces for each week, initially hidden
-    for i, w in enumerate(weeks):
-        # print(i)
-        # print(w)
-        temp = hr_df[hr_df["WeekStart"] == w].sort_values(by="TimestampISO")
-        visible = [False] * len(weeks)
-        visible[i] = True
-        
-        figs.add_trace(
-            go.Scatter(
-                x=temp["TimestampISO"],
-                y=temp["HR"],
-                mode="markers",
-                name=f"Week of {w.date()}",
-                marker=dict(color="red"),
-                visible=(i == 0)  # only first visible by default
-            )
-        )
-
-        figs.update_xaxes(range=[hr_df[hr_df["WeekStart"] == w].min(),hr_df[hr_df["WeekStart"] == w].max()] )
-
-    # Dropdown menu
-    buttons = [
-        dict(
-            label=f"Week of\n{w.date()}",
-            method="update",
-            args=[
-                {"visible": [i == j for j in range(len(weeks))]},
-                {"title": f"Week of\n{w.date()}"}
-            ],
-        )
-        for i, w in enumerate(weeks)
-    ]
-
-    figs.update_layout(
-        updatemenus=[{"buttons": buttons, "direction": "down"}],
-        title=f"Heart Rate: Week of {weeks[0].date()}",
-        template="plotly_white",
-        yaxis_title="Beats Per Minute"
-    )
-
-    figs.show()
-else:
-    display(Markdown(f"_**No Heart Rate Data Exists**_"))
-```
-
-```{python}
-
-#| eval: True
-#| echo: false
-#| warning: false
-#| message: false
-
-if has_hr:
-    q = hr_df.sort_values(by="TimestampISO")
+    hr_sorted_df = hr_df.sort_values(by="TimestampISO")
 
     fig = go.Figure()
 
     fig.add_trace(
     go.Scatter(
-        x=q["TimestampISO"],
-        y=q["HR"],
+        x=hr_sorted_df["TimestampISO"],
+        y=hr_sorted_df["HR"],
         mode="lines+markers",
         marker=dict(
         color="red"
@@ -679,61 +622,47 @@ if has_gait:
     .infer_objects()
 )   
 
-    origin = gait_df['TimestampISO'].dropna().min().normalize()
+    gait_sorteddf = gait_df.sort_values(by="TimestampISO")
 
-    gait_df["week_idx"] = ((gait_df["TimestampISO"] - origin) // pd.Timedelta(days=7)).astype(int)
+    fig = go.Figure()
 
-    gait_df["WeekStart"] =origin + pd.to_timedelta(gait_df["week_idx"]*7, unit="D")
-
-    weeks = sorted(gait_df["WeekStart"].unique())
-    num_weeks = len(weeks)
-
-    figs = go.Figure()
-
-    # Add traces for each week, initially hidden
-    for i, w in enumerate(weeks):
-        # print(i)
-        # print(w)
-        temp = gait_df[gait_df["WeekStart"] == w].sort_values(by="TimestampISO")
-        visible = [False] * len(weeks)
-        visible[i] = True
-        
-        figs.add_trace(
-            go.Scatter(
-                x=temp["TimestampISO"],
-                y=temp["Balance"],
-                mode="markers",
-                name=f"Week of {w.date()}",
-                marker=dict(color="blue"),
-                visible=(i == 0)  # only first visible by default
-            )
+    fig.add_trace(
+    go.Scatter(
+        x=gait_sorteddf["TimestampISO"],
+        y=gait_sorteddf["Balance"],
+        mode="lines+markers",
+        marker=dict(
+        color="red"
+        ),
+        line=dict(
+        color="green",
+        width=1
         )
-
-        figs.update_xaxes(range=[gait_df[gait_df["WeekStart"] == w].min(),gait_df[gait_df["WeekStart"] == w].max()] )
-        figs.update_yaxes(range=[0,1])
-
-    # Dropdown menu
-    buttons = [
-        dict(
-            label=f"Gait Data Week of\n{w.date()}",
-            method="update",
-            args=[
-                {"visible": [i == j for j in range(len(weeks))]},
-                {"title": f"Week of\n{w.date()}"}
-            ],
-        )
-        for i, w in enumerate(weeks)
-    ]
-
-    figs.update_layout(
-        yaxis_title="Gait Data",
-        updatemenus=[{"buttons": buttons, "direction": "down"}],
-        title=f"Balance: Week of {weeks[0].date()}",
-        template="plotly_white"
+    )
     )
 
-    figs.add_hline(y=0.5, line_dash="dash", line_color="green", annotation_text="Balanced Gait")
-    figs.show()
+    # fig = px.line(
+    #   x=q["TimestampISO"],
+    #   y=q["HR"],
+    #   markers=True
+    #   )
+    # fig.update_traces(
+    #   line_color="red",
+    # )
+    fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1 day", step="day", stepmode="backward"),
+                dict(count=3, label="3 days", step="day", stepmode="backward"),
+                dict(count=5, label="5 day", step="day", stepmode="backward"),
+                dict(count=7, label="1 week", step="day", stepmode="backward"),
+                dict(step="all")
+            ])
+        )
+    )
+    fig.add_hline(y=0.5, line_dash="dash", line_color="green", annotation_text="Balanced Gait")
+    fig.show()
 else:
     display(Markdown(f"_**No Gait Data Exists**_"))
 ```
@@ -767,65 +696,39 @@ else:
 #| message: false
 
 if has_double_support:
-    double_support_df["TimestampISO"] = (
-    pd.to_datetime(double_support_df["TimestampISO"], utc=True, errors="coerce")
-    .dt.tz_convert("America/Detroit")
-    .infer_objects()
-)   
+    double_support_sorted_df = double_support_df.sort_values(by="TimestampISO")
 
-    origin = double_support_df['TimestampISO'].dropna().min().normalize()
+    fig = go.Figure()
 
-    double_support_df["week_idx"] = ((double_support_df["TimestampISO"] - origin) // pd.Timedelta(days=7)).astype(int)
-
-    double_support_df["WeekStart"] =origin + pd.to_timedelta(double_support_df["week_idx"]*7, unit="D")
-
-    weeks = sorted(double_support_df["WeekStart"].unique())
-    num_weeks = len(weeks)
-
-    figs = go.Figure()
-
-    # Add traces for each week, initially hidden
-    for i, w in enumerate(weeks):
-        # print(i)
-        # print(w)
-        temp = double_support_df[double_support_df["WeekStart"] == w].sort_values(by="TimestampISO")
-        visible = [False] * len(weeks)
-        visible[i] = True
-        
-        figs.add_trace(
-            go.Scatter(
-                x=temp["TimestampISO"],
-                y=temp["Percentage"],
-                mode="markers",
-                name=f"Week of {w.date()}",
-                marker=dict(color="blue"),
-                visible=(i == 0)  # only first visible by default
-            )
+    fig.add_trace(
+    go.Scatter(
+        x=double_support_sorted_df["TimestampISO"],
+        y=double_support_sorted_df["Percentage"],
+        mode="lines+markers",
+        marker=dict(
+        color="blue"
+        ),
+        line=dict(
+        color="green",
+        width=1
         )
-
-        figs.update_xaxes(range=[double_support_df[double_support_df["WeekStart"] == w].min(),double_support_df[double_support_df["WeekStart"] == w].max()] )
-        figs.update_yaxes(range=[0,1])
-
-    # Dropdown menu
-    buttons = [
-        dict(
-            label=f"Double Support Data Week of\n{w.date()}",
-            method="update",
-            args=[
-                {"visible": [i == j for j in range(len(weeks))]},
-                {"title": f"Week of\n{w.date()}"}
-            ],
-        )
-        for i, w in enumerate(weeks)
-    ]
-
-    figs.update_layout(
-        yaxis_title="Percentage of Time with Both Feet on Ground",
-        updatemenus=[{"buttons": buttons, "direction": "down"}],
-        title=f"Double Support: Week of {weeks[0].date()}",
-        template="plotly_white"
     )
-    figs.show()
+    )
+
+    fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1 day", step="day", stepmode="backward"),
+                dict(count=3, label="3 days", step="day", stepmode="backward"),
+                dict(count=5, label="5 day", step="day", stepmode="backward"),
+                dict(count=7, label="1 week", step="day", stepmode="backward"),
+                dict(step="all")
+            ])
+        )
+    )
+    fig.show()
+
 else:
     display(Markdown(f"_**No Double Support Data Exists**_"))
 ```
@@ -1042,6 +945,18 @@ else:
     display(Markdown(f"_**No Sleep Survey Data Exists**_"))
 ```
 
+# Overall Data
+
+```{python}
+#| eval: true
+all_df = pd.merge(hr_sorted_df[["ID","file_type", "TimestampISO"]], sleep_df[["ID", "file_type", "StartISO","Duration_in_Minutes"]], left_on="TimestampISO", right_on="StartISO", how="outer")
+
+# all_df = all_df.merge(sleep_df)
+
+display(all_df.head())
+
+```
+
 # Merge Sleep and HR data
 
 ```{python}
@@ -1081,6 +996,9 @@ merge = pd.merge_asof(
 )
 
 new_order = merge[['ID','GlobalTime', 'Asleep', 'HR']]
+
+new2 = pd.merge_asof(new_order,gait_df[['TimestampISO', "Balance"]], left_on="GlobalTime", right_on="TimestampISO",direction="nearest",
+    tolerance=pd.Timedelta(seconds=15) )
 ```
 
 
@@ -1111,15 +1029,21 @@ for index, _ in sleep_df.iterrows():
     start.append(start_time)
     end.append(end_time)
     night.append(sleep_day)
-
-    aveHR = hr_sorted_df["HR"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)).mean()
-    std_hr = hr_sorted_df["HR"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)).std()
+    timing_df = hr_sorted_df[(hr_sorted_df["TimestampISO"] >= start_time)]
+    timing_df = timing_df[(timing_df["TimestampISO"] <= end_time)]
+    aveHR = timing_df["HR"].mean()
+    std_hr = timing_df["HR"].std()
     
-    first_hr_timestamp = hr_sorted_df["TimestampISO"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)&(hr_sorted_df["HR"].notna())).iloc[0],
-    last_hr_timestamp = hr_sorted_df["TimestampISO"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)&(hr_sorted_df["HR"].notna())).iloc[-1]
-    
-    first_hr = hr_sorted_df["HR"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)&(hr_sorted_df["HR"].notna())).iloc[0]
-    last_hr = hr_sorted_df["HR"].where((hr_sorted_df["TimestampISO"] >= start_time) &(hr_sorted_df["TimestampISO"] < end_time)&(hr_sorted_df["HR"].notna())).iloc[-1]
+    if len(timing_df) >0:
+        first_hr_timestamp = timing_df["TimestampISO"].iloc[0]
+        last_hr_timestamp = timing_df["TimestampISO"].iloc[-1]
+        first_hr = timing_df["HR"].iloc[0]
+        last_hr = timing_df["HR"].iloc[-1]
+    else:
+        first_hr_timestamp = np.nan
+        last_hr_timestamp = np.nan
+        first_hr = np.nan
+        last_hr = np.nan
 
     average_hr.append(aveHR)
     sd_hr.append(std_hr)
@@ -1127,9 +1051,8 @@ for index, _ in sleep_df.iterrows():
     latest_hr.append(last_hr)
     earliest_timestamp.append(first_hr_timestamp)
     latest_timestamp.append(last_hr_timestamp)
-    # new_df["AverageHR"] = new_order["HR"].where(
-    #     (new_order["GlobalTime"] >= start_time)
-    # ).mean()
+    del timing_df
+    
 
 hr_dictionary = {
     'ID': IDs,
@@ -1145,6 +1068,11 @@ hr_dictionary = {
 }
 
 HR_summary_df = pd.DataFrame(hr_dictionary)
+
+if len(HR_summary_df) <=0:
+    empty_row= pd.DataFrame([[pd.NA]*len(HR_summary_df.columns)], columns=HR_summary_df.columns)
+    empty_row["ID"] = RID
+
 
 csv_name = "HR_Summary_"+RID+".csv"
 
@@ -1299,4 +1227,3 @@ with this program. If not, see <https://www.gnu.org/licenses/>.
 session_info.show()
 
 ```
-
