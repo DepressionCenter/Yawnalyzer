@@ -10,4 +10,4 @@ PathKeeper.py
 *.html
 /_*.local
 
-*.yml
+_quarto.yml
