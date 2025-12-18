@@ -1,10 +1,6 @@
 ---
 title: "Yawnalyzer"
 subtitle: "Preprocessing Report"
-author:
-  - name: NAME
-    email: EMAIL
-    affiliations: AFFILIATION
 date: last-modified
 date-format: "[Last Modified:] DD MMM YYYY"
 license: "GPL-3.0-or-later"
