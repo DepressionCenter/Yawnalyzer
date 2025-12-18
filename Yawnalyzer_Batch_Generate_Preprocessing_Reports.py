@@ -28,6 +28,7 @@
 
 # with this program. If not, see <https://www.gnu.org/licenses/>.
 
+from sys import stderr
 import pandas as pd
 import os
 import datetime
@@ -36,10 +37,10 @@ import subprocess
 import PathKeeper  # File containing machine-specific paths
 
 IDs_list = []
-
+failed_to_render_file = Path(os.path.join(PathKeeper.report_path,"IDs_To_Examine.txt")) #File where IDs that failed to render will be saved
 
 def render_report(
-    qmd: Path, out_dir: Path, out_html: None, param_name: str, rid_value: str
+    qmd_file:Path, out_dir: Path, out_html:None, id_param_name:str, id_value:str
 ):
     cmd = [
         "quarto",
@@ -79,17 +80,22 @@ for id in id_df["ID"].unique():
     report_html = id + "_QualityContol_" + render_datetime + ".html"
     print(report_html)
 
-    output_path = Path(PathKeeper.report_path) / report_html
-    print("Will write:", output_path.resolve())
+    output_path = Path(os.path.join(PathKeeper.merged_data_path, report_html))
+    print("Preparing to right", output_path.resolve())
 
-    render_report(
-        qmd=Path("Yawnalyzer_Step2_PreprocessingReport.qmd"),
+    success, stdout_vale, stderr_value = render_report(
+        qmd_file=Path("Yawnalyzer_Step2_PreprocessingReport.qmd"),
         out_html=report_html,
         out_dir=Path(PathKeeper.report_path),
-        param_name="RID",
-        rid_value=id,
+        id_param_name="RID",
+        id_value=id,
     )
 
-    print("Completed Writing:", report_html)
+    if success:
+        print("Completed Writing:", report_html)
+    else:
+        with open(failed_to_render_file, "a", encoding="utf-8") as f:
+            f.write(f"FAILED: {id}")
+        print(stderr)
 
 print("Finished Rendering")

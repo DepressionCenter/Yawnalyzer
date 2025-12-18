@@ -11,3 +11,4 @@ PathKeeper.py
 /_*.local
 
 _quarto.yml
+*.yml
