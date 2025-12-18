@@ -28,6 +28,7 @@
 
 # with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import pandas as pd
 from sys import stderr
 import pandas as pd
 import os
@@ -35,6 +36,7 @@ import datetime
 from pathlib import Path
 import subprocess
 import PathKeeper  # File containing machine-specific paths
+
 
 IDs_list = []
 failed_to_render_file = Path(os.path.join(PathKeeper.report_path,"IDs_To_Examine.txt")) #File where IDs that failed to render will be saved
@@ -45,9 +47,9 @@ def render_report(
     cmd = [
         "quarto",
         "render",
-        str(qmd),
+        str(qmd_file),
         "-P",
-        f"{param_name}:{rid_value}",
+        f"{id_param_name}={id_value}",
         "--to",
         "html",
         "--output-dir",
@@ -71,17 +73,19 @@ for file in os.listdir(PathKeeper.merged_data_path):
         current_file = pd.read_csv(
             Path(os.path.join(PathKeeper.merged_data_path, file))
         )
+        current_file = current_file["ID"]
         IDs_list.append(current_file)
 
-id_df = pd.concat(IDs_list).sort_values("ID")
+id_df = pd.concat(IDs_list, ignore_index=True).sort_values().reset_index(drop=True)
 
-for id in id_df["ID"].unique():
+
+for id in id_df.unique():
     render_datetime = datetime.datetime.now().strftime("%Y_%m_%d_T%H_%M_%S")
     report_html = id + "_QualityContol_" + render_datetime + ".html"
     print(report_html)
 
     output_path = Path(os.path.join(PathKeeper.merged_data_path, report_html))
-    print("Preparing to right", output_path.resolve())
+    print("Preparing to write", output_path.resolve())
 
     success, stdout_vale, stderr_value = render_report(
         qmd_file=Path("Yawnalyzer_Step2_PreprocessingReport.qmd"),
@@ -95,7 +99,7 @@ for id in id_df["ID"].unique():
         print("Completed Writing:", report_html)
     else:
         with open(failed_to_render_file, "a", encoding="utf-8") as f:
-            f.write(f"FAILED: {id}")
+            f.write(f"Could not Render: {id}")
         print(stderr)
 
 print("Finished Rendering")
