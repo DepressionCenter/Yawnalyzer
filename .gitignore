@@ -8,3 +8,6 @@ PathKeeper.py
 **/*.quarto_ipynb
 
 *.html
+/_*.local
+
+*.yml
