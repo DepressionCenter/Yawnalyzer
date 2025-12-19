@@ -330,25 +330,32 @@ if df_watch_or_phone_list:
 
 if df_sleep_list:
     df_sleep = pd.concat(df_sleep_list, ignore_index=True)
+    df_sleep = df_sleep.drop_duplicates(subset=["Start"], keep="first")
 
 if df_hr_list:
     df_hr = pd.concat(df_hr_list, ignore_index=True)
+    df_hr = df_hr.drop_duplicates(subset=["Timestamp"], keep="first")
 
 if df_survey_list:
     for survey in df_survey_list:
         if "Question4" not in survey.columns:
             survey["Question4"] = pd.NA
     df_survey = pd.concat(df_survey_list, ignore_index=True)
+    df_survey = df_survey.drop_duplicates(subset=["Timestamp"], keep="first")
 
 if df_cognitive_survey_list:
     df_cognitive_survey = pd.concat(df_cognitive_survey_list, ignore_index=True)
+    df_cognitive_survey = df_cognitive_survey.drop_duplicates(subset=["Timestamp"], keep="first")
 if df_gait_list:
     df_gait = pd.concat(df_gait_list, ignore_index=True)
+    df_gait = df_gait.drop_duplicates(subset=["Timestamp"], keep="first")
 if df_asymmetry_list:
     df_asymmetry = pd.concat(df_asymmetry_list, ignore_index=True)
+    df_asymmetry = df_asymmetry.drop_duplicates(subset=["Timestamp"], keep="first")
 
 if df_support_list:
     df_support = pd.concat(df_support_list, ignore_index=True)
+    df_support = df_support.drop_duplicates(subset=["Timestamp"], keep="first")
 
 df_sleep = df_sleep if "df_sleep" in locals() else pd.DataFrame()
 df_hr = df_hr if "df_hr" in locals() else pd.DataFrame()
