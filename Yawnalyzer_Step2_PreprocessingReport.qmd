@@ -449,8 +449,9 @@ else:
 ## Plotting
 
 ```{python}
-#| label: Plot HR Values
-#| eval: true
+
+#| label: HR_Plot
+#| eval: True
 #| echo: false
 #| warning: false
 #| message: false
@@ -1011,7 +1012,7 @@ start = []
 end = []
 average_hr = []
 sd_hr = []
-ealiest_hr =[]
+earliest_hr =[]
 latest_hr =[]
 earliest_timestamp=[]
 latest_timestamp = []
@@ -1025,8 +1026,11 @@ for index, _ in sleep_df.iterrows():
     start.append(start_time)
     end.append(end_time)
     night.append(sleep_day)
+    #Filter hr_sorted_df to only be included between the start and stop times
     timing_df = hr_sorted_df[(hr_sorted_df["TimestampISO"] >= start_time)]
     timing_df = timing_df[(timing_df["TimestampISO"] <= end_time)]
+    
+    #Calculate the Mean and standard deviation of the Heart rate during this period (if any heart rate is recorded)
     aveHR = timing_df["HR"].mean()
     std_hr = timing_df["HR"].std()
     
@@ -1043,7 +1047,7 @@ for index, _ in sleep_df.iterrows():
 
     average_hr.append(aveHR)
     sd_hr.append(std_hr)
-    ealiest_hr.append(first_hr)
+    earliest_hr.append(first_hr)
     latest_hr.append(last_hr)
     earliest_timestamp.append(first_hr_timestamp)
     latest_timestamp.append(last_hr_timestamp)
@@ -1057,7 +1061,7 @@ hr_dictionary = {
     'End_Time': end,
     'Mean_HR_Present_During_Period':average_hr,
     'Standard_Deviation_of_Present_HR_During Period': sd_hr,
-    'Earliest_Recorded_HR': ealiest_hr,
+    'Earliest_Recorded_HR': earliest_hr,
     'Earliest_Recorded_HR_Timestamp':earliest_timestamp,
     'Latest_Recorded_HR': latest_hr,
     'Latest_Recorded_HR_Timestamp': latest_timestamp,
