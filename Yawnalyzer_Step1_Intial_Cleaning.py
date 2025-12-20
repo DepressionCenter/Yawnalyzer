@@ -83,6 +83,7 @@ vars_used = [
 
 numeric_pattern = re.compile(r"^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?")
 
+surveys_only_combined_list = ["UMI1001","UMI1002","UMI1003","UMI1004"]
 
 def extract_numeric(response):
     numeric_response = numeric_pattern.match(response)
@@ -269,18 +270,24 @@ for participant in os.listdir(PathKeeper.inital_path):
             df_cognitive_survey_list.append(s)
             del s
             found_any = True
-        # elif individual_file == "all_surveys.csv":
-        #     file_type = individual_file.removesuffix(".csv")
-        #     s = pd.read_table(os.path.join(participant_dir,individual_file))
-        #     s = s.sort_values(by="DATE_KEY,ANSWERS", ascending=True)
-        #     s[["Survey", "Timestamp", "Question1", "Question2", "Question3","Question4"]] = s["DATE_KEY,ANSWERS"].str.split(pat=",", expand=True)
-        #     s["filename"] = individual_file
-        #     s["ID"] = participant
-        #     s["file_type"] = file_type
-        #     df_cognitive_survey_list.append(s)
-        #     del(s)
-        #     found_any = True
-
+        elif individual_file.endswith("all_surveys.csv") and (participant in surveys_only_combined_list):
+            s = pd.read_table(os.path.join(participant_dir,individual_file))
+            if participant == "UMI1003":
+                s = s.sort_values(by='umid,DATE_KEY,ANSWERS,,,,', ascending=True)
+                s[["UMID","Survey", "Timestamp", "Question1", "Question2", "Question3","Question4"]] = s['umid,DATE_KEY,ANSWERS,,,,'].str.split(pat=",", expand=True)
+                s = s.drop("UMID", axis=1)
+            else:
+                s = s.sort_values(by="DATE_KEY,ANSWERS", ascending=True)
+                s[["Survey", "Timestamp", "Question1", "Question2", "Question3","Question4"]] = s["DATE_KEY,ANSWERS"].str.split(pat=",", expand=True)
+            s["filename"] = individual_file
+            s["ID"] = participant
+            s["file_type"] = s["Survey"].str.rsplit("_", n=1).str[-1]
+            cog = s[s["Survey"].str.endswith("Cognitive")]
+            all_else = s[~s["Survey"].str.endswith("Cognitive")]
+            df_survey_list.append(all_else)
+            df_cognitive_survey_list.append(cog)
+            del(s)
+            found_any = True
         else:
             continue
             # print("Not Steps "+filename2)
@@ -341,11 +348,16 @@ if df_survey_list:
         if "Question4" not in survey.columns:
             survey["Question4"] = pd.NA
     df_survey = pd.concat(df_survey_list, ignore_index=True)
-    df_survey = df_survey.drop_duplicates(subset=["Timestamp"], keep="first")
+    df_survey=df_survey.drop(['umid,DATE_KEY,ANSWERS,,,,', "DATE_KEY,ANSWERS"], axis=1)
+    df_survey = df_survey.drop_duplicates(subset=["Survey","Timestamp"], keep="first")
+
+del survey
 
 if df_cognitive_survey_list:
     df_cognitive_survey = pd.concat(df_cognitive_survey_list, ignore_index=True)
     df_cognitive_survey = df_cognitive_survey.drop_duplicates(subset=["Timestamp"], keep="first")
+    df_cognitive_survey=df_cognitive_survey.drop(['umid,DATE_KEY,ANSWERS,,,,', "DATE_KEY,ANSWERS"], axis=1)
+
 if df_gait_list:
     df_gait = pd.concat(df_gait_list, ignore_index=True)
     df_gait = df_gait.drop_duplicates(subset=["Timestamp"], keep="first")
@@ -468,7 +480,7 @@ if not df_all_surveys.empty:
     df_all_surveys = df_all_surveys[
         survey_meta_data
         + [col for col in df_all_surveys.columns if col not in survey_meta_data]
-    ].drop(columns="DATE_KEY,ANSWERS")
+    ]
     question_cols = ["Question1", "Question2", "Question3", "Question4"]
     rows_fulltext = []
     for _, row in df_all_surveys.iterrows():
