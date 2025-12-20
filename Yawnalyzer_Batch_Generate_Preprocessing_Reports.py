@@ -30,7 +30,6 @@
 
 import pandas as pd
 from sys import stderr
-import pandas as pd
 import os
 import datetime
 from pathlib import Path
