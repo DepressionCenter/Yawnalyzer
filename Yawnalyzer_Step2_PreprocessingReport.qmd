@@ -55,6 +55,7 @@ import datetime as dt
 from datetime import datetime, timedelta
 from IPython.display import Markdown, display
 import session_info
+import copy
 import PathKeeper
 
 ```
@@ -75,16 +76,15 @@ Markdown(f"> Participant: _**{RID}**_")
 
 > Generation Date: `{python} dt.datetime.now().strftime("%Y-%m-%d")`
 
-This is a processing report for Subject ID (SID) **`{python} RID`** from the MS-EMA project (IRB #HUM00265263; PI: Tiffany Braley, MD). MS-EMA is an Apple watch-based sleep tracking study conducted with patients with Multiple Sclerosis. 
+This is a processing report for Subject ID (SID) **`{python} RID`** from the MS-EMA project (IRB #HUM00265263; PI: Tiffany Braley, MD). MS-EMA is an Apple watch-based sleep tracking study conducted with patients with Multiple Sclerosis.
 
 This report provides both a sense of quality and summary metrics for the following types of information:
 
-- Heart rate (derived from PPG)
-- Sleep-related metrics
-- Gait and balance
+-   Heart rate (derived from PPG)
+-   Sleep-related metrics
+-   Gait and balance
 
 Data for the above were collected over the span of approximately 12 weeks for each subject. Plots contained within this report are summarized by week.
-
 
 ```{python}
 
@@ -140,8 +140,6 @@ def prettify_info(df, memory_usage=False, deep=True, sort_by_nulls=False, show_u
 
 ```
 
-
-
 ```{python}
 
 #| label: "Inital-Read"
@@ -189,7 +187,7 @@ fatigue_survey_df = fatigue_survey_df[fatigue_survey_df["ID"] == RID].copy()
 
 all_surveys_df = sleep_survey_df.drop("Question4", axis=1).merge(cognitive_survey_df, how="outer")
 
-all_surveys_df = all_surveys_df.merge(fatigue_survey_df.drop("Question4", axis=1), how="outer").drop('DATE_KEY,ANSWERS', axis=1)
+all_surveys_df = all_surveys_df.merge(fatigue_survey_df.drop("Question4", axis=1), how="outer")
 
 all_surveys_df["Sleep03"] = all_surveys_df["Sleep03"].str.strip().replace("Sleep03: No new symptoms","Sleep03: 0 = No new symptoms")
 
@@ -370,7 +368,7 @@ gait_df["TimestampISO"] = pd.to_datetime(gait_df["TimestampISO"], utc=False)
 gait_df["TimestampISO"] = (
     gait_df["TimestampISO"]
     .infer_objects()
-    .fillna(pd.to_datetime(gait_df["Timestamp"], unit="s", utc=True).dt.tz_convert('America/New_York'))
+    .fillna(pd.to_datetime(gait_df["Timestamp"], unit="s", utc=True).dt.tz_convert("America/Detroit"))
 )
 # Double Support
 double_support_df["TimestampISO"] = pd.to_datetime(double_support_df["TimestampISO"], utc=False)
@@ -378,7 +376,7 @@ double_support_df["TimestampISO"] = pd.to_datetime(double_support_df["TimestampI
 double_support_df["TimestampISO"] = (
     double_support_df["TimestampISO"]
     .infer_objects()
-    .fillna(pd.to_datetime(double_support_df["Timestamp"], unit="s", utc=True).dt.tz_convert('America/New_York'))
+    .fillna(pd.to_datetime(double_support_df["Timestamp"], unit="s", utc=True).dt.tz_convert("America/Detroit"))
 )
 # Asymmetry
 
@@ -387,7 +385,7 @@ asymmetry_df["TimestampISO"] = pd.to_datetime(asymmetry_df["TimestampISO"], utc=
 asymmetry_df["TimestampISO"] = (
     asymmetry_df["TimestampISO"]
     .infer_objects()
-    .fillna(pd.to_datetime(asymmetry_df["Timestamp"], unit="s", utc=True).dt.tz_convert('America/New_York'))
+    .fillna(pd.to_datetime(asymmetry_df["Timestamp"], unit="s", utc=True).dt.tz_convert("America/Detroit"))
 )
 # Cognitive survey
 
