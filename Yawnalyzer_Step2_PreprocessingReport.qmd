@@ -138,6 +138,71 @@ def prettify_info(df, memory_usage=False, deep=True, sort_by_nulls=False, show_u
   
   return info_df
 
+def add_fig_traces(fig_collection, source_fig, start_row,end_row, col=1, reset_axes=True, empty_label="No data",yaxis_range=None):
+
+    n_rows = end_row - start_row + 1
+    source_traces = (
+        list(source_fig.data)
+        if (source_fig is not None and hasattr(source_fig, "data"))
+        else []
+    )
+    
+    for i in range(n_rows):
+        row = start_row + i
+
+        if i < len(source_traces):
+            trace2 = copy.deepcopy(source_traces[i])
+            if reset_axes:
+                trace2.xaxis = None
+                trace2.yaxis = None
+            fig_collection.add_trace(trace2, row=row, col=col)
+        else:
+            # Placeholder trace 
+            fig_collection.add_trace(
+                go.Scatter(
+                    x=[],
+                    y=[],
+                    mode="lines",
+                    showlegend=False,
+                    hoverinfo="skip",
+                ),
+                row=row,
+                col=col,
+            )
+
+            # Add "No data" label within this subplot
+            fig_collection.add_annotation(
+                text=empty_label,
+                x=0.5,
+                y=0.5,
+                xref="x domain",
+                yref="y domain",
+                showarrow=False,
+                font=dict(color="gray"),
+                row=row,
+                col=col,
+            )
+            
+
+def add_traces_single_plot(source_fig, *, name_override=None, reset_axes=False):
+    if source_fig is None or not hasattr(source_fig, "data") or len(source_fig.data) == 0:
+        return []
+    
+    traces = []
+    for trace in source_fig.data:
+        copied_trace = copy.deepcopy(trace)
+
+        copied_trace.xaxis="x"
+        copied_trace.yaxis = "y"
+        
+        if name_override is not None:
+            copied_trace.name=name_override
+        
+        traces.append(copied_trace)
+    return traces
+
+
+
 ```
 
 ```{python}
@@ -559,12 +624,13 @@ The blue line represents 8 hours of sleep.
 if has_sleep:
     sleep_temp_df = sleep_df.sort_values(by="Night_of_Sleep")
     sleep_temp_df['Sleep Session'] = sleep_temp_df.groupby('Night_of_Sleep').cumcount()
+    sleep_temp_df = sleep_temp_df.dropna(subset=["Sleep Session"])
     sleep_temp_df["Sleep Session"] = "Sleep Session: " + (sleep_temp_df["Sleep Session"]+1).astype(str) 
 
     sleep_fig = go.Figure()
     sleep_fig.add_hline(y=(60*8), line_dash="dash", line_color="cyan", layer='below')
 
-    for session in sleep_temp_df["Sleep Session"].unique():
+    for session in sleep_temp_df["Sleep Session"].dropna().unique():
         filtered_df = sleep_temp_df[sleep_temp_df["Sleep Session"] == session]
 
         sleep_fig.add_trace(
@@ -681,6 +747,8 @@ if has_gait:
     gait_fig.add_hline(y=50, line_dash="dash", line_color="green", annotation_text="Balanced Gait")
     gait_fig.show()
 else:
+    gait_sorted_df = gait_df.sort_values(by="TimestampISO")
+    gait_sorted_df["TimestampISO"] = pd.to_datetime(gait_sorted_df["TimestampISO"], errors="coerce").dt.tz_localize("America/Detroit")
     display(Markdown(f"_**No Gait Data Exists**_"))
 ```
 
@@ -713,6 +781,9 @@ else:
 
 if has_double_support:
     double_support_sorted_df = double_support_df.sort_values(by="TimestampISO")
+    IsoTime = pd.to_datetime(double_support_sorted_df["TimestampISO"], errors="coerce", utc=True)
+
+    double_support_sorted_df["TimestampISO"] = IsoTime.dt.tz_convert("America/Detroit")
     double_support_sorted_df["Percentage"] = double_support_sorted_df["Percentage"]*100 
 
     double_support_fig = go.Figure()
@@ -747,6 +818,9 @@ if has_double_support:
     double_support_fig.show()
 
 else:
+    double_support_sorted_df = double_support_df.sort_values(by="TimestampISO")
+    double_support_sorted_df["TimestampISO"] = pd.to_datetime(double_support_sorted_df["TimestampISO"], errors="coerce").dt.tz_localize("America/Detroit")
+
     display(Markdown(f"_**No Double Support Data Exists**_"))
 ```
 
@@ -782,7 +856,7 @@ if has_cognitive_survey:
     cognitive_survey_long_df = cognitive_survey_df.melt(id_vars=["ID","survey_date", "Timestamp"], value_vars=["Cognitive01","Cognitive02","Pain", "Depression"], var_name='Questions', value_name='Value')
 
     cognitive_survey_long_df["survey_date"] = (
-        pd.to_datetime(cognitive_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/New_York")
+        pd.to_datetime(cognitive_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
     )
 
 ####
@@ -820,6 +894,13 @@ if has_cognitive_survey:
 
     cog_fig.show()
 else:
+    cognitive_survey_long_df = pd.DataFrame(columns=["ID","survey_date","Timestamp","Questions","Value"])
+    cognitive_survey_long_df["survey_date"] = (
+        pd.to_datetime(cognitive_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
+    cognitive_survey_long_df["Timestamp"] = (
+        pd.to_datetime(cognitive_survey_long_df["Timestamp"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
     display(Markdown(f"_**No Cognitvie Survey Data Exists**_"))
 ```
 
@@ -853,7 +934,7 @@ if has_fatigue_survey:
     fatigue_survey_long_df = fatigue_survey_df.melt(id_vars=["ID","survey_date", "Timestamp"], value_vars=[ 'Physical_Fatigue', 'Brain_Fatigue', 'Sleepiness'], var_name='Questions', value_name='Value')
 
     fatigue_survey_long_df["survey_date"] = (
-        pd.to_datetime(fatigue_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/New_York")
+        pd.to_datetime(fatigue_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
     )
 
 ####
@@ -890,6 +971,13 @@ if has_fatigue_survey:
 
     fatigue_fig.show()
 else:
+    fatigue_survey_long_df = pd.DataFrame(columns=["ID","survey_date","Timestamp","Questions","Value"])
+    fatigue_survey_long_df["survey_date"] = (
+        pd.to_datetime(fatigue_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
+    fatigue_survey_long_df["Timestamp"] = (
+        pd.to_datetime(fatigue_survey_long_df["Timestamp"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
     display(Markdown(f"_**No Fatigue Survey Data Exists**_"))
 ```
 
@@ -923,7 +1011,7 @@ if has_sleep_survey:
     sleep_survey_long_df = sleep_survey_df.melt(id_vars=["ID","survey_date", "Timestamp"], value_vars=[ 'Sleep01', 'Sleep02', 'Sleep03'], var_name='Questions', value_name='Value')
 
     sleep_survey_long_df["survey_date"] = (
-        pd.to_datetime(sleep_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/New_York")
+        pd.to_datetime(sleep_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
     )
 
 
@@ -959,10 +1047,17 @@ if has_sleep_survey:
 
     sleepy_fig.show()
 else:
+    sleep_survey_long_df = pd.DataFrame(columns=["ID","survey_date","Timestamp","Questions","Value"])
+    sleep_survey_long_df["survey_date"] = (
+        pd.to_datetime(sleep_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
+    sleep_survey_long_df["Timestamp"] = (
+        pd.to_datetime(sleep_survey_long_df["Timestamp"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
     display(Markdown(f"_**No Sleep Survey Data Exists**_"))
 ```
 
-# Merge All data
+# Merge HR and Sleep Data
 
 ```{python}
 # | label: Generate merged HR and Sleep dataframe
@@ -976,20 +1071,42 @@ all_surveys_long_df = (pd.concat(
     ignore_index=True,
 ).sort_values(["survey_date", "Timestamp"]).reset_index(drop=True)
 )
-earliest_time = min(
-    hr_df["TimestampISO"].min(),
-    sleep_df["StartISO"].min(),
-    gait_sorted_df["TimestampISO"].min(),
-    double_support_sorted_df["TimestampISO"].min(),
-    all_surveys_long_df["Timestamp"].min(),
-)
-latest_time = max(
+
+max_timestamps = [
     hr_df["TimestampISO"].max(),
     sleep_df["StartISO"].max(),
-    gait_sorted_df["TimestampISO"].max(),
-    double_support_sorted_df["TimestampISO"].max(),
-    all_surveys_long_df["Timestamp"].max(),
-)
+    gait_df["TimestampISO"].max(),
+    double_support_df["TimestampISO"].max(),
+    all_surveys_long_df["Timestamp"].max()
+]
+
+max_timestamps = [
+    timestamp.tz_convert("America/Detroit") if timestamp.tzinfo is not None else timestamp.tz_localize("America/Detroit")
+    for timestamp in max_timestamps
+    if pd.notna(timestamp)
+]
+
+latest_time = max(max_timestamps)
+
+min_timestamps = [
+    hr_df["TimestampISO"].min(),
+    sleep_df["StartISO"].min(),
+    gait_df["TimestampISO"].min(),
+    double_support_df["TimestampISO"].min(),
+    all_surveys_long_df["Timestamp"].min()
+]
+
+min_timestamps = [
+    timestamp.tz_convert("America/Detroit") if timestamp.tzinfo is not None else timestamp.tz_localize("America/Detroit")
+    for timestamp in max_timestamps
+    if pd.notna(timestamp)
+]
+
+latest_time = max(max_timestamps)
+
+earliest_time = min(min_timestamps)
+
+
 time_df = pd.DataFrame(
     {
         "GlobalTime": pd.date_range(start=earliest_time, end=latest_time, freq="30s"),
@@ -1137,75 +1254,97 @@ HR_summary_df.dropna(subset=["Night_of_Sleep"]).to_csv(os.path.join(PathKeeper.s
 #| warning: false
 #| message: false
 
-earliest_day =  sleep_df["Night_of_Sleep"].min()
-latest_day = sleep_df["Night_of_Sleep"].max()
+sleep_range_df = sleep_df.copy()
+sleep_range_df = pd.to_datetime(sleep_range_df["Night_of_Sleep"], errors="coerce").dt.tz_localize("America/Detroit")
 
-sleep_days_df = pd.DataFrame({
-    "GlobalDay": pd.date_range(
-        start=earliest_day,
-        end=latest_day,
-        freq="1D"
+if sleep_range_df.empty:
+    # Create an empty-but-well-formed output and skip the rest
+    sleep_summary_df = pd.DataFrame(columns=["ID", "Day_of_Sleep", "Asleep_Time", "Awake_Time"])
+    overall_summary["Days_in_Row_Sleeping_Max"] = np.nan
+    overall_summary["Days_in_Row_Sleeping_Min"] = np.nan
+    overall_summary["Days_in_Row_Sleeping_Mean"] = np.nan
+    overall_summary["Days_in_Row_Sleeping_Median"] = np.nan
+    overall_summary["Days_Missing_Sleep"] = 0
+    overall_summary["Prop_Missing_Sleep"] = np.nan  # or 0, depending on your convention
+
+    csv_name = f"Sleep_Summary_{RID}.csv"
+    sleep_summary_df.to_csv(os.path.join(PathKeeper.summarized_data_path, csv_name), index=False)
+
+else:
+    night = pd.to_datetime(sleep_df["Night_of_Sleep"], errors="coerce").dt.tz_localize("America/Detroit")
+
+    night = night.dt.normalize()
+
+    earliest_day = night.min()
+    latest_day = night.max()
+
+    sleep_days_df = pd.DataFrame({
+        "GlobalDay": pd.date_range(
+            start=earliest_day,
+            end=latest_day,
+            freq="1D"
+        )
+    }
     )
-}
-)
 
-sleep_df2 = sleep_df.dropna(subset=["Night_of_Sleep"]).copy()
-
-sleep_df2["Night_of_Sleep"] = pd.to_datetime(sleep_df["Night_of_Sleep"])
-
-sleep_all_df = pd.merge(sleep_days_df, sleep_df2, left_on="GlobalDay", right_on="Night_of_Sleep", how="left").sort_values(["GlobalDay", "StartISO"])
-
-sleep_all_df["ID"] = sleep_all_df["ID"].fillna(RID)
-
-sleep_summary_df = pd.DataFrame()
-
-for date, dataframe in sleep_all_df.groupby("GlobalDay"):
-    if dataframe["Duration_in_Minutes"].isna().all():
-        dataframe["Asleep_Time"] = pd.NA
-        dataframe["AwakeTime"] = pd.NA
-        dataframe["Date"] = date
-    else:
-        dataframe["Asleep_Time"] = dataframe["Duration_in_Minutes"].sum()
-        dataframe["Awake_Time"] =  (24*60) -dataframe["Asleep_Time"]
-        dataframe["Date"] = date
-    sleep_summary_df = pd.concat([sleep_summary_df, dataframe], ignore_index=True) 
-
-sleep_summary_df = sleep_summary_df[["ID", "GlobalDay", "Asleep_Time", "Awake_Time"]].drop_duplicates("GlobalDay").rename(columns={"GlobalDay":"Day_of_Sleep"})
+    sleep_df2 = sleep_df.dropna(subset=["Night_of_Sleep"]).copy()
 
 
-sleep_summary_df["Day_of_Sleep"] = pd.to_datetime(sleep_summary_df["Day_of_Sleep"]).dt.date
+    sleep_df2["Night_of_Sleep"] = pd.to_datetime(sleep_df["Night_of_Sleep"], errors="coerce").dt.tz_localize("America/Detroit")
+
+    sleep_all_df = pd.merge(sleep_days_df, sleep_df2, left_on="GlobalDay", right_on="Night_of_Sleep", how="left").sort_values(["GlobalDay", "StartISO"])
+
+    sleep_all_df["ID"] = sleep_all_df["ID"].fillna(RID)
+
+    sleep_summary_df = pd.DataFrame()
+
+    for date, dataframe in sleep_all_df.groupby("GlobalDay"):
+        if dataframe["Duration_in_Minutes"].isna().all():
+            dataframe["Asleep_Time"] = pd.NA
+            dataframe["AwakeTime"] = pd.NA
+            dataframe["Date"] = date
+        else:
+            dataframe["Asleep_Time"] = dataframe["Duration_in_Minutes"].sum()
+            dataframe["Awake_Time"] =  (24*60) -dataframe["Asleep_Time"]
+            dataframe["Date"] = date
+        sleep_summary_df = pd.concat([sleep_summary_df, dataframe], ignore_index=True) 
+
+    sleep_summary_df = sleep_summary_df[["ID", "GlobalDay", "Asleep_Time", "Awake_Time"]].drop_duplicates("GlobalDay").rename(columns={"GlobalDay":"Day_of_Sleep"})
 
 
-sleep_present = sleep_summary_df["Asleep_Time"].notna()
-
-# Each missing value increases the GroupID
-sleep_summary_df["streak_id"] = (~sleep_present).groupby(sleep_summary_df["ID"]).cumsum()
-
-# Count number of day that each day is for a given "streak"
-sleep_summary_df["Streak_Length"] = (
-    sleep_present.astype(int)
-    .groupby([sleep_summary_df["ID"], sleep_summary_df["streak_id"]])
-    .cumsum()
-)
-
-# Replace any "0" with NAN
-sleep_summary_df["Streak_Length"] = sleep_summary_df["Streak_Length"].replace(0, np.nan)
-
-sleep_streak_length_df = pd.DataFrame()
-
-#Calculate the maximum number of days for each streak, which would be the streak's
-sleep_streak_length_df["max"] = sleep_summary_df["Streak_Length"].groupby([sleep_summary_df["ID"], sleep_summary_df["streak_id"]]).max()
+    sleep_summary_df["Day_of_Sleep"] = pd.to_datetime(sleep_summary_df["Day_of_Sleep"]).dt.date
 
 
-overall_summary["Days_in_Row_Sleeping_Max"] = sleep_streak_length_df["max"].max()
-overall_summary["Days_in_Row_Sleeping_Min"] = sleep_streak_length_df["max"].min()
-overall_summary["Days_in_Row_Sleeping_Mean"] = sleep_streak_length_df["max"].mean()
-overall_summary["Days_in_Row_Sleeping_Median"] = sleep_streak_length_df["max"].median()
+    sleep_present = sleep_summary_df["Asleep_Time"].notna()
+
+    # Each missing value increases the GroupID
+    sleep_summary_df["streak_id"] = (~sleep_present).groupby(sleep_summary_df["ID"]).cumsum()
+
+    # Count number of day that each day is for a given "streak"
+    sleep_summary_df["Streak_Length"] = (
+        sleep_present.astype(int)
+        .groupby([sleep_summary_df["ID"], sleep_summary_df["streak_id"]])
+        .cumsum()
+    )
+
+    # Replace any "0" with NAN
+    sleep_summary_df["Streak_Length"] = sleep_summary_df["Streak_Length"].replace(0, np.nan)
+
+    sleep_streak_length_df = pd.DataFrame()
+
+    #Calculate the maximum number of days for each streak, which would be the streak's
+    sleep_streak_length_df["max"] = sleep_summary_df["Streak_Length"].groupby([sleep_summary_df["ID"], sleep_summary_df["streak_id"]]).max()
 
 
-overall_summary["Days_Missing_Sleep"] = sleep_summary_df["Asleep_Time"].isnull().sum()
+    overall_summary["Days_in_Row_Sleeping_Max"] = sleep_streak_length_df["max"].max()
+    overall_summary["Days_in_Row_Sleeping_Min"] = sleep_streak_length_df["max"].min()
+    overall_summary["Days_in_Row_Sleeping_Mean"] = sleep_streak_length_df["max"].mean()
+    overall_summary["Days_in_Row_Sleeping_Median"] = sleep_streak_length_df["max"].median()
 
-overall_summary["Prop_Missing_Sleep"] = round(((sleep_summary_df["Asleep_Time"].isnull().sum())/len(sleep_summary_df)),2)
+
+    overall_summary["Days_Missing_Sleep"] = sleep_summary_df["Asleep_Time"].isnull().sum()
+
+    overall_summary["Prop_Missing_Sleep"] = round(((sleep_summary_df["Asleep_Time"].isnull().sum())/len(sleep_summary_df)),2)
 
 
 csv_name = "Sleep_Summary_"+RID+".csv"
@@ -1271,31 +1410,19 @@ overall_summary_df.to_csv(os.path.join(PathKeeper.summarized_data_path,csv_name)
 
 physio_fig  = make_subplots(rows=4, cols=1, subplot_titles=("HR", "Double Support", "Balance","Sleep Durations"))
 
-for trace in hr_fig.data:
-    physio_fig.add_trace(copy.deepcopy(trace), row=1, col=1)
-
-for trace in double_support_fig.data:
-    physio_fig.add_trace(copy.deepcopy(trace), row=2, col=1)
-
-for trace in gait_fig.data:
-    physio_fig.add_trace(copy.deepcopy(trace), row=3, col=1)
-
-for trace in sleep_fig.data:
-    physio_fig.add_trace(copy.deepcopy(trace), row=4, col=1)
-    physio_fig.update_yaxes(range=[0,None], row=4, col=1)
-
-
-
+add_fig_traces(physio_fig, globals().get("hr_fig"), start_row=1, end_row=1)
+add_fig_traces(physio_fig, globals().get("double_support_fig"), start_row=2, end_row=2)
+add_fig_traces(physio_fig, globals().get("gait_fig"), start_row=3, end_row=3)
+add_fig_traces(physio_fig, globals().get("sleep_fig"), start_row=4, end_row=4, yaxis_range=[0, None])
 
 physio_fig.update_xaxes(matches="x")
 physio_fig.update_xaxes(visible=False, rangeslider_visible=False)
 physio_fig.update_xaxes(visible=True, rangeslider_visible=True, row=4, col=1)
+
 physio_fig.update_layout(showlegend=False)
 physio_fig.show()
 
-# new_fig = go.Figure()
 
-# new_fig.add_trace
 
 ```
 
@@ -1311,23 +1438,9 @@ physio_fig.show()
 
 survey_fig  = make_subplots(rows=10, cols=1, subplot_titles=("Cognitive01", "Cognitive02", "Pain", "Depression","Physical Fatigue","Brain Fatigue","Sleepiness", "Sleep01", "Sleep02", "Sleep03"))
 
-for index, trace in enumerate(cog_fig.data, start=1):
-    trace2 = copy.deepcopy(trace)
-    trace2.xaxis = None
-    trace2.yaxis = None
-    survey_fig.add_trace(trace2, row=index, col=1)
-
-for index, trace in enumerate(fatigue_fig.data, start=5):
-    trace2 = copy.deepcopy(trace)
-    trace2.xaxis = None
-    trace2.yaxis = None
-    survey_fig.add_trace(trace2, row=index, col=1)
-
-for index, trace in enumerate(sleepy_fig.data, start=8):
-    trace2 = copy.deepcopy(trace)
-    trace2.xaxis = None
-    trace2.yaxis = None
-    survey_fig.add_trace(trace2, row=index, col=1)
+add_fig_traces(survey_fig, globals().get("cog_fig"),     start_row=1, end_row=4)
+add_fig_traces(survey_fig, globals().get("fatigue_fig"), start_row=5, end_row=7)
+add_fig_traces(survey_fig, globals().get("sleepy_fig"),  start_row=8, end_row=10)
 
 survey_fig.update_xaxes(matches="x")
 survey_fig.update_xaxes(visible=False, rangeslider_visible=False)
@@ -1353,36 +1466,14 @@ survey_fig.show()
 
 total_fig  = make_subplots(rows=14, cols=1, subplot_titles=("HR", "Double Support", "Balance", "Sleep Durations","Cognitive01", "Cognitive02", "Pain", "Depression","Physical Fatigue","Brain Fatigue","Sleepiness", "Sleep01", "Sleep02", "Sleep03"))
 
-for trace in hr_fig.data:
-    total_fig.add_trace(copy.deepcopy(trace), row=1, col=1)
+add_fig_traces(total_fig, globals().get("hr_fig"), start_row=1, end_row=1)
+add_fig_traces(total_fig, globals().get("double_support_fig"), start_row=2, end_row=2)
+add_fig_traces(total_fig, globals().get("gait_fig"), start_row=3, end_row=3)
+add_fig_traces(total_fig, globals().get("sleep_fig"), start_row=4, end_row=4, yaxis_range=[0, None])
 
-for trace in double_support_fig.data:
-    total_fig.add_trace(copy.deepcopy(trace), row=2, col=1)
-
-for trace in gait_fig.data:
-    total_fig.add_trace(copy.deepcopy(trace), row=3, col=1)
-
-for trace in sleep_fig.data:
-    total_fig.add_trace(copy.deepcopy(trace), row=4, col=1)
-
-
-for index, trace in enumerate(cog_fig.data, start=5):
-    trace2 = copy.deepcopy(trace)
-    trace2.xaxis = None
-    trace2.yaxis = None
-    total_fig.add_trace(trace2, row=index, col=1)
-
-for index, trace in enumerate(fatigue_fig.data, start=9):
-    trace2 = copy.deepcopy(trace)
-    trace2.xaxis = None
-    trace2.yaxis = None
-    total_fig.add_trace(trace2, row=index, col=1)
-
-for index, trace in enumerate(sleepy_fig.data, start=12):
-    trace2 = copy.deepcopy(trace)
-    trace2.xaxis = None
-    trace2.yaxis = None
-    total_fig.add_trace(trace2, row=index, col=1)
+add_fig_traces(total_fig, globals().get("cog_fig"),     start_row=5, end_row=8)
+add_fig_traces(total_fig, globals().get("fatigue_fig"), start_row=9, end_row=11)
+add_fig_traces(total_fig, globals().get("sleepy_fig"),  start_row=12, end_row=14)
 
 total_fig.update_xaxes(matches="x")
 total_fig.update_xaxes(visible=False, rangeslider_visible=False)
@@ -1399,45 +1490,22 @@ total_fig.show()
 ## Shared Plot
 
 ```{python}
-
 all_traces = []
 
-for trace in hr_fig.data:
-    new_trace = copy.deepcopy(trace)
-    new_trace.name="Average HR (BPM) from Last recording"
-    all_traces.append(new_trace)
+all_traces += add_traces_single_plot(hr_fig, name_override="Average HR (BPM) from Last Recording",
+) if "hr_fig" in globals() else []
 
-for trace in double_support_fig.data:
-    new_trace = copy.deepcopy(trace)
-    new_trace.name="Double Support Percentage"
-    all_traces.append(new_trace)
+all_traces += add_traces_single_plot(sleep_fig) if "sleep_fig" in globals() else []
 
-for trace in gait_fig.data:
-    new_trace = copy.deepcopy(trace)
-    new_trace.name="Gait Balance"
-    all_traces.append(new_trace)
+all_traces += add_traces_single_plot(double_support_fig, name_override="Double Support Percentage") if "double_support_fig" in globals() else []
 
-for trace in sleep_fig.data:
-    new_trace = copy.deepcopy(trace)
-    all_traces.append(new_trace)
+all_traces += add_traces_single_plot(gait_fig, name_override="Gait Balance") if "gait_fig" in globals() else []
 
-for index, trace in enumerate(cog_fig.data, start=5):
-    new_trace = copy.deepcopy(trace)
-    new_trace.xaxis = None
-    new_trace.yaxis = None
-    all_traces.append(new_trace)
+all_traces += add_traces_single_plot(cog_fig) if "cog_fig" in globals() else []
 
-for index, trace in enumerate(fatigue_fig.data, start=9):
-    new_trace = copy.deepcopy(trace)
-    new_trace.xaxis = None
-    new_trace.yaxis = None
-    all_traces.append(new_trace)
+all_traces += add_traces_single_plot(fatigue_fig) if "fatigue_fig" in globals() else []
 
-for index, trace in enumerate(sleepy_fig.data, start=12):
-    new_trace = copy.deepcopy(trace)
-    new_trace.xaxis = None
-    new_trace.yaxis = None
-    all_traces.append(new_trace)
+all_traces += add_traces_single_plot(sleepy_fig) if "sleepy_fig" in globals() else []
 
 fig = go.Figure(data=all_traces)
 
