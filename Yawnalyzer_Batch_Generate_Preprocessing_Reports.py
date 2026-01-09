@@ -98,7 +98,7 @@ for id in id_df.unique():
         print("Completed Writing:", report_html)
     else:
         with open(failed_to_render_file, "a", encoding="utf-8") as f:
-            f.write(f"Could not Render: {id}")
+            f.write(f"Could not Render: {id} \n")
         print(stderr)
 
 print("Finished Rendering")
