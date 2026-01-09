@@ -506,12 +506,16 @@ else:
 
 ```{python}
 if has_hr:
-    hr_histogram_df = hr_sorted_df.sort_values("Time_Averaged_Over_in_Minutes")
+    hr_gap_df = hr_sorted_df.sort_values("Time_Averaged_Over_in_Minutes")
     #hr_histogram_df = hr_histogram_df.tips()
 
-    hr_box_fig =px.box(hr_histogram_df, y="Time_Averaged_Over_in_Minutes", x="ID", points="all")
+    hr_box_fig =px.box(hr_gap_df, y="Time_Averaged_Over_in_Minutes", x="ID",  title="Distribution of Distances between HR recordings in Minutes")
 
     hr_box_fig.show()
+
+    hr_hist_fig = px.histogram(hr_gap_df, x="Time_Averaged_Over_in_Minutes", title="Histogram of Time Difference between HR recordings in Minutes")
+
+    hr_hist_fig.show()
 else:
     display(Markdown(f"_**No Heart Rate Data Exists**_"))
 ```
@@ -595,6 +599,8 @@ else:
 
 
 ```
+
+## Number of Consecutive 
 
 # Gait and Walking Metrics
 
@@ -1165,6 +1171,37 @@ for date, dataframe in sleep_all_df.groupby("GlobalDay"):
     sleep_summary_df = pd.concat([sleep_summary_df, dataframe], ignore_index=True) 
 
 sleep_summary_df = sleep_summary_df[["ID", "GlobalDay", "Asleep_Time", "Awake_Time"]].drop_duplicates("GlobalDay").rename(columns={"GlobalDay":"Day_of_Sleep"})
+
+
+sleep_summary_df["Day_of_Sleep"] = pd.to_datetime(sleep_summary_df["Day_of_Sleep"]).dt.date
+
+
+sleep_present = sleep_summary_df["Asleep_Time"].notna()
+
+# Each missing value increases the GroupID
+sleep_summary_df["streak_id"] = (~sleep_present).groupby(sleep_summary_df["ID"]).cumsum()
+
+# Count number of day that each day is for a given "streak"
+sleep_summary_df["Streak_Length"] = (
+    sleep_present.astype(int)
+    .groupby([sleep_summary_df["ID"], sleep_summary_df["streak_id"]])
+    .cumsum()
+)
+
+# Replace any "0" with NAN
+sleep_summary_df["Streak_Length"] = sleep_summary_df["Streak_Length"].replace(0, np.nan)
+
+sleep_streak_length_df = pd.DataFrame()
+
+#Calculate the maximum number of days for each streak, which would be the streak's
+sleep_streak_length_df["max"] = sleep_summary_df["Streak_Length"].groupby([sleep_summary_df["ID"], sleep_summary_df["streak_id"]]).max()
+
+
+overall_summary["Days_in_Row_Sleeping_Max"] = sleep_streak_length_df["max"].max()
+overall_summary["Days_in_Row_Sleeping_Min"] = sleep_streak_length_df["max"].min()
+overall_summary["Days_in_Row_Sleeping_Mean"] = sleep_streak_length_df["max"].mean()
+overall_summary["Days_in_Row_Sleeping_Median"] = sleep_streak_length_df["max"].median()
+
 
 overall_summary["Days_Missing_Sleep"] = sleep_summary_df["Asleep_Time"].isnull().sum()
 
