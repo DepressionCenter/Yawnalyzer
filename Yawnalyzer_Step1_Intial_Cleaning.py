@@ -135,10 +135,12 @@ for participant in os.listdir(PathKeeper.inital_path):
         print(f"Participant {participant}: processing...")
     found_any = False
 
-    if participant == "UMI1003":
-        participant_dir = os.path.join(participant_dir, "All")
+    # if participant == "UMI1003":
+    #     participant_dir = os.path.join(participant_dir, "All")
 
     for individual_file in os.listdir(participant_dir):
+        if individual_file.startswith("umi1003"):
+            continue
         if individual_file.endswith("phoneSleep.csv") or individual_file.endswith(
             "watchSleep.csv"
         ):
@@ -348,15 +350,15 @@ if df_survey_list:
         if "Question4" not in survey.columns:
             survey["Question4"] = pd.NA
     df_survey = pd.concat(df_survey_list, ignore_index=True)
-    df_survey=df_survey.drop(['umid,DATE_KEY,ANSWERS,,,,', "DATE_KEY,ANSWERS"], axis=1)
+    #df_survey=df_survey.drop(['umid,DATE_KEY,ANSWERS,,,,', "DATE_KEY,ANSWERS"], axis=1)
     df_survey = df_survey.drop_duplicates(subset=["Survey","Timestamp"], keep="first")
 
-del survey
+#del survey
 
 if df_cognitive_survey_list:
     df_cognitive_survey = pd.concat(df_cognitive_survey_list, ignore_index=True)
     df_cognitive_survey = df_cognitive_survey.drop_duplicates(subset=["Timestamp"], keep="first")
-    df_cognitive_survey=df_cognitive_survey.drop(['umid,DATE_KEY,ANSWERS,,,,', "DATE_KEY,ANSWERS"], axis=1)
+    #df_cognitive_survey=df_cognitive_survey.drop(['umid,DATE_KEY,ANSWERS,,,,', "DATE_KEY,ANSWERS"], axis=1)
 
 if df_gait_list:
     df_gait = pd.concat(df_gait_list, ignore_index=True)
