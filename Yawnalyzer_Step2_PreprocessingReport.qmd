@@ -421,6 +421,7 @@ sleep_df["EndISO"] = (
 
 sleep_df=sleep_df.drop(["hour","Before_or_After_noon","Duration"], axis=1)
 
+has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
 
 #Heart Rate
 
