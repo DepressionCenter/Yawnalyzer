@@ -48,13 +48,17 @@ RID = "PARTICIPANT_ID"
 import os
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 #import neurokit2 as nk
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import datetime as dt
 from datetime import datetime, timedelta
 from IPython.display import Markdown, display
+import yasa
 import session_info
+import yasa
 import copy
 import PathKeeper
 
@@ -201,6 +205,14 @@ def add_traces_single_plot(source_fig, *, name_override=None, reset_axes=False):
         traces.append(copied_trace)
     return traces
 
+def to_standarized_timezone(time_col, time_zone) :
+    #Convert time column to datetime
+    time_col = pd.to_datetime(time_col, errors="coerce")
+    #If there is no Timezone set, set timezone
+    if getattr(time_col.dt, "tz", None) is None:
+        return time_col.dt.tz_localize(time_zone)
+    # Convert the datetime to the desired timezone.
+    return time_col.dt.tz_convert(time_zone)
 
 
 ```
