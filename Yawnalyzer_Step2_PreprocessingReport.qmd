@@ -397,20 +397,16 @@ sleep_df["Night_of_Sleep"] = np.where(
     sleep_df["EndISO"].dt.date,
 )
 
-sleep_df["Duration_in_Minutes"] = sleep_df["Duration_in_Minutes"].where(
-    sleep_df["Duration_in_Minutes"] <= (24*60), #24 hours of 60 minutes
+sleep_df["KeepOrDrop"] = np.where(
+    sleep_df["Duration_in_Minutes"] <= (24*60), 1,0#24 hours of 60 minutes
 )
 
-sleep_df["Night_of_Sleep"] = sleep_df["Night_of_Sleep"].where(
-    sleep_df["Duration_in_Minutes"].notna()
-)
-
+#sleep_df = sleep_df.dropna(subset=["Duration_in_Minutes"])
 
 sleep_df["Night_of_Sleep"] = pd.to_datetime(
     sleep_df["Night_of_Sleep"], utc=True,
     errors="coerce").dt.tz_convert("America/Detroit").dt.date
 
-#sleep_df["Night_of_Sleep"] = sleep_df["Night_of_Sleep"].dt.date
 
 sleep_df["EndISO"] = (
     sleep_df["EndISO"]
@@ -492,17 +488,118 @@ sleep_survey_df["Timestamp"] = pd.to_datetime(sleep_survey_df["Timestamp"],error
 #| warning: false
 #| message: false
 
-hr_df=hr_df.sort_values(by="TimestampISO")
-sleep_df = sleep_df.sort_values(by="StartISO")
-gait_df = gait_df.sort_values(by="TimestampISO")
-double_support_df = double_support_df.sort_values("TimestampISO")
-asymmetry_df = asymmetry_df.sort_values("TimestampISO")
-cognitive_survey_df = cognitive_survey_df.sort_values("Timestamp")
-fatigue_survey_df = fatigue_survey_df.sort_values("Timestamp") 
-sleep_survey_df = sleep_survey_df.sort_values("Timestamp")
+hr_df=hr_df.sort_values(by="TimestampISO").copy()
+sleep_df = sleep_df.sort_values(by="StartISO").copy()
+gait_df = gait_df.sort_values(by="TimestampISO").copy()
+double_support_df = double_support_df.sort_values("TimestampISO").copy()
+asymmetry_df = asymmetry_df.sort_values("TimestampISO").copy()
+cognitive_survey_df = cognitive_survey_df.sort_values("Timestamp").copy()
+fatigue_survey_df = fatigue_survey_df.sort_values("Timestamp").copy()
+sleep_survey_df = sleep_survey_df.sort_values("Timestamp").copy()
 
 ```
 
+```{python}
+
+#|label: Remove First Week of Data
+#| echo: false
+#| warning: false
+#| message: false
+
+hr_df["TimestampISO"] = to_standarized_timezone(hr_df["TimestampISO"], "America/Detroit")
+sleep_df["StartISO"]  = to_standarized_timezone(sleep_df["StartISO"], "America/Detroit")
+sleep_df["EndISO"]    = to_standarized_timezone(sleep_df["EndISO"], "America/Detroit")
+gait_df["TimestampISO"] = to_standarized_timezone(gait_df["TimestampISO"], "America/Detroit")
+double_support_df["TimestampISO"] = to_standarized_timezone(double_support_df["TimestampISO"], "America/Detroit")
+asymmetry_df["TimestampISO"] = to_standarized_timezone(asymmetry_df["TimestampISO"], "America/Detroit")
+cognitive_survey_df["Timestamp"] = to_standarized_timezone(cognitive_survey_df["Timestamp"], "America/Detroit")
+fatigue_survey_df["Timestamp"]   = to_standarized_timezone(fatigue_survey_df["Timestamp"], "America/Detroit")
+sleep_survey_df["Timestamp"]     = to_standarized_timezone(sleep_survey_df["Timestamp"], "America/Detroit")
+
+
+first_timestamps = [
+    hr_df["TimestampISO"].min(),
+    sleep_df.loc[sleep_df["KeepOrDrop"] == 1, "StartISO"].min(),
+    gait_df["TimestampISO"].min(),
+    double_support_df["TimestampISO"].min(),
+    asymmetry_df["TimestampISO"].min(),
+    cognitive_survey_df["Timestamp"].min(),
+    fatigue_survey_df["Timestamp"].min(),
+    sleep_survey_df["Timestamp"].min()
+]
+
+first_timestamps = [
+    #Double confirm conversion to desired Timezone ("Detroit")
+    timestamp.tz_convert("America/Detroit") if timestamp.tzinfo is not None else timestamp.tz_localize("America/Detroit")
+    for timestamp in first_timestamps
+    if pd.notna(timestamp)
+]
+
+
+last_timestamps = [
+    hr_df["TimestampISO"].max(),
+    sleep_df.loc[sleep_df["KeepOrDrop"] == 1,"EndISO"].max(),
+    gait_df["TimestampISO"].max(),
+    double_support_df["TimestampISO"].max(),
+    asymmetry_df["TimestampISO"].max(),
+    cognitive_survey_df["Timestamp"].max(),
+    fatigue_survey_df["Timestamp"].max(),
+    sleep_survey_df["Timestamp"].max()
+]
+
+last_timestamps = [
+    #Double confirm conversion to desired Timezone ("Detroit")
+    timestamp.tz_convert("America/Detroit") if timestamp.tzinfo is not None else timestamp.tz_localize("America/Detroit")
+    for timestamp in last_timestamps
+    if pd.notna(timestamp)
+]
+
+start = min(first_timestamps) + pd.Timedelta(days=7) # Determine 7 days after the earliest recorded piece of data present.
+end   = max(last_timestamps) - pd.Timedelta(days=1) # Determine 1 day before the last recorded piece of data present
+
+# HR 
+hr_df = hr_df.loc[
+    (hr_df["TimestampISO"] >= start) & (hr_df["TimestampISO"] <= end) 
+].copy()
+
+# Sleep 
+sleep_df = sleep_df.loc[
+    (sleep_df["StartISO"] >= start) & (sleep_df["EndISO"] <= end) 
+].copy()
+
+# Gait 
+gait_df = gait_df.loc[
+    (gait_df["TimestampISO"] >= start) & (gait_df["TimestampISO"] <= end) 
+].copy()
+
+# Double Support 
+double_support_df = double_support_df.loc[
+    (double_support_df["TimestampISO"] >= start) & (double_support_df["TimestampISO"] <= end) 
+].copy()
+
+
+
+# Asymmetry 
+asymmetry_df = asymmetry_df.loc[
+    (asymmetry_df["TimestampISO"] >= start) & (asymmetry_df["TimestampISO"] <= end) 
+].copy()
+
+# Cognitive Survey 
+cognitive_survey_df = cognitive_survey_df.loc[
+    (cognitive_survey_df["Timestamp"] >= start) & (cognitive_survey_df["Timestamp"] <= end) 
+].copy()
+
+# Fatigue Survey 
+fatigue_survey_df = fatigue_survey_df.loc[
+    (fatigue_survey_df["Timestamp"] >= start) & (fatigue_survey_df["Timestamp"] <= end) 
+].copy()
+
+# Sleep Survey 
+sleep_survey_df = sleep_survey_df.loc[
+    (sleep_survey_df["Timestamp"] >= start) & (sleep_survey_df["Timestamp"] <= end) 
+].copy()
+
+```
 # Heart Rate
 
 ## General Information
@@ -584,6 +681,11 @@ else:
 ```{python}
 if has_hr:
     hr_gap_df = hr_sorted_df.sort_values("Time_Averaged_Over_in_Minutes")
+    
+    csv_name = "Gaps_HR_"+RID+".csv"
+
+    hr_sorted_df.to_csv(os.path.join(PathKeeper.summarized_data_path,csv_name), index=False)
+
     #hr_histogram_df = hr_histogram_df.tips()
 
     hr_box_fig =px.box(hr_gap_df, y="Time_Averaged_Over_in_Minutes", x="ID",  title="Distribution of Distances between HR recordings in Minutes")
@@ -634,7 +736,7 @@ The blue line represents 8 hours of sleep.
 #| message: false
 
 if has_sleep:
-    sleep_temp_df = sleep_df.sort_values(by="Night_of_Sleep")
+    sleep_temp_df = sleep_df[sleep_df["KeepOrDrop"] == 1].sort_values(by="Night_of_Sleep")
     sleep_temp_df['Sleep Session'] = sleep_temp_df.groupby('Night_of_Sleep').cumcount()
     sleep_temp_df = sleep_temp_df.dropna(subset=["Sleep Session"])
     sleep_temp_df["Sleep Session"] = "Sleep Session: " + (sleep_temp_df["Sleep Session"]+1).astype(str) 
@@ -760,7 +862,7 @@ if has_gait:
     gait_fig.show()
 else:
     gait_sorted_df = gait_df.sort_values(by="TimestampISO")
-    gait_sorted_df["TimestampISO"] = pd.to_datetime(gait_sorted_df["TimestampISO"], errors="coerce").dt.tz_localize("America/Detroit")
+    gait_sorted_df["TimestampISO"] = pd.to_datetime(gait_sorted_df["TimestampISO"], errors="coerce").dt.tz_convert("America/Detroit")
     display(Markdown(f"_**No Gait Data Exists**_"))
 ```
 
@@ -1144,7 +1246,6 @@ merge_df = pd.merge_asof(
 )
 
 new_order = merge_df[["ID", "GlobalTime", "Asleep", "HR"]]
-
 merge_df2 = pd.merge_asof(
     new_order,
     gait_sorted_df[["TimestampISO", "Balance"]],
@@ -1197,11 +1298,15 @@ latest_hr =[]
 earliest_timestamp=[]
 latest_timestamp = []
 
-for index, _ in sleep_df.iterrows():
-    ID = sleep_df["ID"][index]
-    start_time  = sleep_df["StartISO"][index]
-    end_time  = sleep_df["EndISO"][index]
-    sleep_day = sleep_df["Night_of_Sleep"][index]
+sleep_dropped_df = sleep_df.loc[sleep_df["KeepOrDrop"] == 1]
+
+sleep_dropped_df = sleep_dropped_df.sort_values(by="StartISO")
+
+for index, _ in sleep_dropped_df.iterrows():
+    ID = sleep_dropped_df["ID"][index]
+    start_time  =  sleep_dropped_df["StartISO"][index]
+    end_time  =  sleep_dropped_df["EndISO"][index]
+    sleep_day = sleep_dropped_df["Night_of_Sleep"][index]
     IDs.append(ID)
     start.append(start_time)
     end.append(end_time)
@@ -1267,16 +1372,16 @@ HR_summary_df.dropna(subset=["Night_of_Sleep"]).to_csv(os.path.join(PathKeeper.s
 #| message: false
 
 sleep_range_df = sleep_df.copy()
-sleep_range_df = pd.to_datetime(sleep_range_df["Night_of_Sleep"], errors="coerce").dt.tz_localize("America/Detroit")
+sleep_range_df["Night_of_Sleep"] = pd.to_datetime(sleep_range_df["Night_of_Sleep"], errors="coerce").dt.tz_localize("America/Detroit")
 
-if sleep_range_df.empty:
+if sleep_range_df.empty or len(sleep_range_df["Night_of_Sleep"]) < 1:
     # Create an empty-but-well-formed output and skip the rest
     sleep_summary_df = pd.DataFrame(columns=["ID", "Day_of_Sleep", "Asleep_Time", "Awake_Time"])
     overall_summary["Days_in_Row_Sleeping_Max"] = np.nan
     overall_summary["Days_in_Row_Sleeping_Min"] = np.nan
     overall_summary["Days_in_Row_Sleeping_Mean"] = np.nan
     overall_summary["Days_in_Row_Sleeping_Median"] = np.nan
-    overall_summary["Days_Missing_Sleep"] = 0
+    overall_summary["Days_Missing_Sleep"] = np.nan
     overall_summary["Prop_Missing_Sleep"] = np.nan  # or 0, depending on your convention
 
     csv_name = f"Sleep_Summary_{RID}.csv"
