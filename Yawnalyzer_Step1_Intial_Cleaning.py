@@ -35,8 +35,14 @@ import re
 import PathKeeper  # File with machine-specific paths
 
 vars_used = [
+    "all_else",
+    "cog",
+    "current_data",
+    "data,"
     "df_cognitive_survey",
     "df_cognitive_survey_list",
+    "df_fatigue_survey",
+    "df_fatigue_survey_list",
     "df_hr",
     "df_hr_list",
     "df_sleep",
