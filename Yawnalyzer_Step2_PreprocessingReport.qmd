@@ -56,7 +56,6 @@ from plotly.subplots import make_subplots
 import datetime as dt
 from datetime import datetime, timedelta
 from IPython.display import Markdown, display
-import yasa
 import session_info
 import yasa
 import copy
