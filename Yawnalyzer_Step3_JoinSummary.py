@@ -34,6 +34,7 @@ import PathKeeper #File containing machine-specific paths
 
 hr_summary_list = []
 sleep_summary_list = []
+gaps_hr_list = []
 overall_summary_list = []
 
 summary_path = os.path.join(PathKeeper.summarized_data_path)
@@ -46,11 +47,13 @@ for summary_file in os.listdir(summary_path):
         sleep_summary_list.append(individual_summary)
     elif summary_file.startswith("Overall"):
         overall_summary_list.append(individual_summary)
+    elif summary_file.startswith("Gaps"):
+        gaps_hr_list.append(individual_summary)
 
 
 
 total_hr = pd.concat(hr_summary_list, ignore_index=True)
 total_sleep = pd.concat(sleep_summary_list, ignore_index=True)
 total_overall = pd.concat(overall_summary_list, ignore_index=True)
-
+total_gaps = pd.concat(gaps_hr_list, ignore_index=True)
 
