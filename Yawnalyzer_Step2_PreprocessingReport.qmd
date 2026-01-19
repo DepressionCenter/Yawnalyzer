@@ -780,9 +780,161 @@ else:
 
 ```
 
+## Hypnograph-like plot
+
+```{python}
+#| warning: false
+#| message: false
+
+if has_sleep:
+    night = pd.to_datetime(sleep_df["Night_of_Sleep"], errors="coerce").dt.tz_localize("America/Detroit")
+
+    night = night.dt.normalize()
+
+    earliest_day = night.min()
+    latest_day = night.max()
+
+    latest_time = max(sleep_df["EndISO"])
+
+    earliest_time = min(sleep_df["StartISO"])-pd.Timedelta(2, unit="h")
+
+    sleep_days_df = pd.DataFrame({
+        "GlobalDay": pd.date_range(
+            start=earliest_day,
+            end=latest_day,
+            freq="1D"
+        )
+    }
+    )
+
+
+    time_df = pd.DataFrame(
+        {
+            "GlobalTime": pd.date_range(start=earliest_time, end=latest_time, freq="30s"),
+            "Asleep": "0",
+        }
+    )
+
+    session_interval = pd.IntervalIndex.from_arrays(sleep_df["StartISO"], sleep_df["EndISO"], closed="both")
+
+    has_sleep_interval_including_drops = session_interval.get_indexer_for(time_df["GlobalTime"])
+    group = np.where(has_sleep_interval_including_drops == -1, np.nan, sleep_df["KeepOrDrop"].to_numpy()[has_sleep_interval_including_drops])
+
+    time_df["Hypno"] = np.select(
+        [has_sleep_interval_including_drops == -1, # Is not inside *ANY* interval
+        group == 1], 
+        [
+            "WAKE",
+            "SLEEP"
+        ],
+        default="UNS"
+
+    )
+
+    hypno_order =["SLEEP", "WAKE", "UNS"]
+    hypno_color_map = {
+        "SLEEP": "red",
+        "WAKE": "black",
+        "UNS": "black"
+    }
+
+    hypno_number_map = {
+        "SLEEP": 0,
+        "WAKE": 1,
+        "UNS": 2
+    }
+
+    time_sorted_df = time_df.sort_values(by="GlobalTime")
+    hypno_colors = time_sorted_df["Hypno"].map(hypno_color_map).fillna("black")
+    time_sorted_df["DummyHypno"] = time_sorted_df["Hypno"].map(hypno_number_map)
+
+
+    time_fig = go.Figure()
+
+    time_fig.add_trace(
+    go.Scatter(
+        x=time_sorted_df["GlobalTime"],
+        y=time_sorted_df["Hypno"],
+        mode="lines+markers",
+        marker=dict(
+        color=hypno_colors
+        ),
+        line=dict(
+        color="black",
+        width=1
+        )
+    )
+    )
+
+    time_fig.update_layout(
+        yaxis=dict(categoryorder="array", categoryarray=hypno_order),
+        template="plotly_white"
+    )
+    time_fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1 day", step="day", stepmode="backward"),
+                dict(count=3, label="3 days", step="day", stepmode="backward"),
+                dict(count=5, label="5 day", step="day", stepmode="backward"),
+                dict(count=7, label="1 week", step="day", stepmode="backward"),
+                dict(step="all")
+            ])
+        )
+    )
+
+    time_fig.show()
+
+    # hypno=yasa.Hypnogram(time_sorted_df["Hypno"], n_stages=2, freq="30s")
+
+    # hypno.plot_hypnogram()
+    time_fig_for_group = go.Figure()
+
+    time_fig_for_group.add_trace(
+    go.Scatter(
+        x=time_sorted_df["GlobalTime"],
+        y=time_sorted_df["DummyHypno"],
+        mode="lines+markers",
+        marker=dict(
+        color=hypno_colors
+        ),
+        line=dict(
+        color="black",
+        width=1
+        )
+    )
+    )
+
+    time_fig_for_group.update_layout(
+        yaxis=dict(categoryorder="array", categoryarray=hypno_order, tickmode="array", tickvals=[0,1,2], ticktext=hypno_order),
+        template="plotly_white"
+    )
+    time_fig_for_group.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1 day", step="day", stepmode="backward"),
+                dict(count=3, label="3 days", step="day", stepmode="backward"),
+                dict(count=5, label="5 day", step="day", stepmode="backward"),
+                dict(count=7, label="1 week", step="day", stepmode="backward"),
+                dict(step="all")
+            ])
+        )
+    )
+
+
+else:
+    display(Markdown(f"_**No Sleep Data Exists**_"))
+
+
+```
+
+
 ## Number of Consecutive 
 
 # Gait and Walking Metrics
+
+
 
 ## Gait
 
@@ -1525,12 +1677,12 @@ overall_summary_df.to_csv(os.path.join(PathKeeper.summarized_data_path,csv_name)
 #| warning: false
 #| message: false
 
-physio_fig  = make_subplots(rows=4, cols=1, subplot_titles=("HR", "Double Support", "Balance","Sleep Durations"))
+physio_fig  = make_subplots(rows=4, cols=1, subplot_titles=("HR", "Double Support", "Balance","Sleep Classification"))
 
 add_fig_traces(physio_fig, globals().get("hr_fig"), start_row=1, end_row=1)
 add_fig_traces(physio_fig, globals().get("double_support_fig"), start_row=2, end_row=2)
 add_fig_traces(physio_fig, globals().get("gait_fig"), start_row=3, end_row=3)
-add_fig_traces(physio_fig, globals().get("sleep_fig"), start_row=4, end_row=4, yaxis_range=[0, None])
+add_fig_traces(physio_fig, globals().get("time_fig"), start_row=4, end_row=4, yaxis_range=[0, None])
 
 physio_fig.update_xaxes(matches="x")
 physio_fig.update_xaxes(visible=False, rangeslider_visible=False)
@@ -1581,12 +1733,12 @@ survey_fig.show()
 #| warning: false
 #| message: false
 
-total_fig  = make_subplots(rows=14, cols=1, subplot_titles=("HR", "Double Support", "Balance", "Sleep Durations","Cognitive01", "Cognitive02", "Pain", "Depression","Physical Fatigue","Brain Fatigue","Sleepiness", "Sleep01", "Sleep02", "Sleep03"))
+total_fig  = make_subplots(rows=14, cols=1, subplot_titles=("HR", "Double Support", "Balance", "Sleep Classifications","Cognitive01", "Cognitive02", "Pain", "Depression","Physical Fatigue","Brain Fatigue","Sleepiness", "Sleep01", "Sleep02", "Sleep03"))
 
 add_fig_traces(total_fig, globals().get("hr_fig"), start_row=1, end_row=1)
 add_fig_traces(total_fig, globals().get("double_support_fig"), start_row=2, end_row=2)
 add_fig_traces(total_fig, globals().get("gait_fig"), start_row=3, end_row=3)
-add_fig_traces(total_fig, globals().get("sleep_fig"), start_row=4, end_row=4, yaxis_range=[0, None])
+add_fig_traces(total_fig, globals().get("time_fig"), start_row=4, end_row=4, yaxis_range=[0, None])
 
 add_fig_traces(total_fig, globals().get("cog_fig"),     start_row=5, end_row=8)
 add_fig_traces(total_fig, globals().get("fatigue_fig"), start_row=9, end_row=11)
@@ -1612,7 +1764,7 @@ all_traces = []
 all_traces += add_traces_single_plot(hr_fig, name_override="Average HR (BPM) from Last Recording",
 ) if "hr_fig" in globals() else []
 
-all_traces += add_traces_single_plot(sleep_fig) if "sleep_fig" in globals() else []
+all_traces += add_traces_single_plot(time_fig_for_group, name_override="Sleep Stages") if "time_fig_for_group" in globals() else []
 
 all_traces += add_traces_single_plot(double_support_fig, name_override="Double Support Percentage") if "double_support_fig" in globals() else []
 
