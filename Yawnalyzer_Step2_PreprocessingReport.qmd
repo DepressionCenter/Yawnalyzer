@@ -751,9 +751,9 @@ if has_hr:
 
     hr_box_fig.show()
 
-    hr_hist_fig = px.histogram(hr_gap_df, x="Time_Averaged_Over_in_Minutes", title="Histogram of Time Difference between HR recordings in Minutes")
+    # hr_hist_fig = px.histogram(hr_gap_df, x="Time_Averaged_Over_in_Minutes", title="Histogram of Time Difference between HR recordings in Minutes")
 
-    hr_hist_fig.show()
+    # hr_hist_fig
 else:
     display(Markdown(f"_**No Heart Rate Data Exists**_"))
 ```
@@ -772,9 +772,6 @@ if has_sleep:
     display(prettify_info(sleep_df))
 else:
     display(Markdown(f"_**No Sleep Data Exists**_"))
-    # with open("MissingSleep.txt", "r") as file:
-    # content = file.read()
-    # print(content)
 
 ```
 
@@ -988,7 +985,7 @@ if has_sleep:
         )
     )
 
-
+del(group)
 else:
     display(Markdown(f"_**No Sleep Data Exists**_"))
 
@@ -999,8 +996,6 @@ else:
 ## Number of Consecutive 
 
 # Gait and Walking Metrics
-
-
 
 ## Gait
 
