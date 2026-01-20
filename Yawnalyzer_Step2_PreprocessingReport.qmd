@@ -214,6 +214,49 @@ def to_standarized_timezone(time_col, time_zone) :
     return time_col.dt.tz_convert(time_zone)
 
 
+def add_alternating_backgrouds(df, time_col, day_start=6, night_start=18, night_color="rgba(87, 132, 210, .4)", day_color="rgba(250, 235, 215, .4)"):
+    df_copy = df.copy()
+    df_copy[time_col] = to_standarized_timezone(df_copy[time_col],time_zone="America/Detroit")
+    time_series = df_copy[time_col]
+    start_time = time_series.min().floor('D')
+    end_time = time_series.max().ceil("D")
+
+    days_range = pd.date_range(start_time, end_time, freq="D")
+
+    canvas=[]
+
+    for day in days_range:
+        canvas.append(
+            dict(
+                type="rect",
+                xref="x",
+                yref="paper",
+                x0=day + pd.Timedelta(hours=day_start),
+                x1=day + pd.Timedelta(hours=night_start),
+                y0=0,
+                y1=1,
+                fillcolor=day_color,
+                line=dict(width=0),
+                layer="below"
+            )
+        )
+
+        canvas.append(
+            dict(
+                type="rect",
+                xref="x",
+                yref="paper",
+                x0=day + pd.Timedelta(hours=night_start),
+                x1=day + pd.Timedelta(days=1,hours=day_start),
+                y0=0,
+                y1=1,
+                fillcolor=night_color,
+                line=dict(width=0),
+                layer="below"
+            )
+        )
+    return canvas
+
 ```
 
 ```{python}
@@ -371,7 +414,7 @@ sleep_df["Session"] = sleep_df["gap_hours"].isna() | (sleep_df["gap_hours"] >=2)
 sleep_df["session_id"] = sleep_df["Session"].cumsum()
 
 sleep_df = (
-    sleep_df.groupby(["session_id",'ID', 'submission_date', 'file_type', 'filename']).agg(
+    sleep_df.groupby(["session_id",'ID']).agg(
         ID = ("ID", "first"),
         submission_date = ('submission_date', "first"), 
         file_type = ('file_type',"first"),
@@ -414,7 +457,9 @@ sleep_df["EndISO"] = (
     .fillna(pd.to_datetime(sleep_df["End"], unit="s", utc=True))
 )
 
-sleep_df=sleep_df.drop(["hour","Before_or_After_noon","Duration"], axis=1)
+# sleep_df2 = merge_time_intervals(sleep_df, ["StartISO"], ["EndISO"], time_zone="America/Detroit")
+
+sleep_df=sleep_df.drop(["Before_or_After_noon","Duration"], axis=1)
 
 has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
 
@@ -650,14 +695,11 @@ if has_hr:
     )
     )
 
-    # fig = px.line(
-    #   x=q["TimestampISO"],
-    #   y=q["HR"],
-    #   markers=True
-    #   )
-    # fig.update_traces(
-    #   line_color="red",
-    # )
+    hr_fig.update_layout(
+        shapes=add_alternating_backgrouds(hr_sorted_df,"TimestampISO", day_start=6, night_start=18),
+        template="plotly_white"
+    )
+
     hr_fig.update_xaxes(
         rangeslider_visible=True,
         rangeselector=dict(
@@ -783,8 +825,10 @@ else:
 ## Hypnograph-like plot
 
 ```{python}
+#| label: Hypnogram
 #| warning: false
 #| message: false
+#| eval: True
 
 if has_sleep:
     night = pd.to_datetime(sleep_df["Night_of_Sleep"], errors="coerce").dt.tz_localize("America/Detroit")
@@ -807,7 +851,6 @@ if has_sleep:
     }
     )
 
-
     time_df = pd.DataFrame(
         {
             "GlobalTime": pd.date_range(start=earliest_time, end=latest_time, freq="30s"),
@@ -815,9 +858,13 @@ if has_sleep:
         }
     )
 
-    session_interval = pd.IntervalIndex.from_arrays(sleep_df["StartISO"], sleep_df["EndISO"], closed="both")
+        # Build interval index (make sure StartISO/EndISO are tz-aware in America/Detroit too)
+    session_interval = pd.IntervalIndex.from_arrays(
+        sleep_df["StartISO"], sleep_df["EndISO"], closed="both"
+    )
 
     has_sleep_interval_including_drops = session_interval.get_indexer_for(time_df["GlobalTime"])
+
     group = np.where(has_sleep_interval_including_drops == -1, np.nan, sleep_df["KeepOrDrop"].to_numpy()[has_sleep_interval_including_drops])
 
     time_df["Hypno"] = np.select(
@@ -868,6 +915,7 @@ if has_sleep:
 
     time_fig.update_layout(
         yaxis=dict(categoryorder="array", categoryarray=hypno_order),
+        shapes=add_alternating_backgrouds(time_sorted_df,"GlobalTime", day_start=6, night_start=18),
         template="plotly_white"
     )
     time_fig.update_xaxes(
@@ -990,14 +1038,10 @@ if has_gait:
     )
     )
 
-    # fig = px.line(
-    #   x=q["TimestampISO"],
-    #   y=q["HR"],
-    #   markers=True
-    #   )
-    # fig.update_traces(
-    #   line_color="red",
-    # )
+    gait_fig.update_layout(
+        shapes=add_alternating_backgrouds(gait_sorted_df,"TimestampISO", day_start=6, night_start=18),
+        template="plotly_white"
+    )
     gait_fig.update_xaxes(
         rangeslider_visible=True,
         rangeselector=dict(
@@ -1069,6 +1113,11 @@ if has_double_support:
     )
     )
 
+    double_support_fig.update_layout(
+        shapes=add_alternating_backgrouds(double_support_sorted_df,"TimestampISO", day_start=6, night_start=18),
+        template="plotly_white"
+    )
+
     double_support_fig.update_xaxes(
         rangeslider_visible=True,
         rangeselector=dict(
@@ -1081,12 +1130,12 @@ if has_double_support:
             ])
         )
     )
+    
     double_support_fig.show()
 
 else:
     double_support_sorted_df = double_support_df.sort_values(by="TimestampISO")
-    double_support_sorted_df["TimestampISO"] = pd.to_datetime(double_support_sorted_df["TimestampISO"], errors="coerce").dt.tz_localize("America/Detroit")
-
+    double_support_sorted_df["TimestampISO"] = pd.to_datetime(double_support_sorted_df["TimestampISO"], errors="coerce").dt.tz_convert("America/Detroit")
     display(Markdown(f"_**No Double Support Data Exists**_"))
 ```
 
@@ -1426,9 +1475,14 @@ merge_df4 = pd.merge_asof(
     tolerance=pd.Timedelta(seconds=15),
 )
 
-all_data_df = merge_df4.drop(columns=["ID_y"]).rename(columns={"ID_x":"ID"})
+all_data_df = merge_df4.drop(columns=["ID_y", "Timestamp", "TimestampISO"]).rename(columns={"ID_x":"ID"})
 
 all_data_df["ID"] = all_data_df["ID"].ffill().bfill()
+
+csv_name = "All_Data_by_30sBins_"+RID+".csv"
+
+all_data_df.to_csv(os.path.join(PathKeeper.summarized_data_path,csv_name), index=False)
+
 
 ```
 
