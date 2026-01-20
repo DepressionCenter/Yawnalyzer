@@ -423,6 +423,7 @@ sleep_df = (
         EndISO = ('EndISO', "max"),
         Start = ('Start', "min"),
         End = ('End', "max")
+
     )
     .reset_index(drop=True)
 )
@@ -644,6 +645,22 @@ sleep_survey_df = sleep_survey_df.loc[
     (sleep_survey_df["Timestamp"] >= start) & (sleep_survey_df["Timestamp"] <= end) 
 ].copy()
 
+##
+
+has_hr ="hr_df" in locals() and len(hr_df) > 0
+
+has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
+
+has_gait ="gait_df" in locals() and len(gait_df) > 0
+
+has_double_support ="double_support_df" in locals() and len(double_support_df) > 0
+
+has_asymmetry= "asymmetry_df" in locals() and len(asymmetry_df) > 0
+
+has_cognitive_survey= "cognitive_survey_df" in locals() and len(cognitive_survey_df) > 0
+has_fatigue_survey= "fatigue_survey_df" in locals() and len(fatigue_survey_df) > 0
+has_sleep_survey= "sleep_survey_df" in locals() and len(sleep_survey_df) > 0
+
 ```
 # Heart Rate
 
@@ -815,6 +832,7 @@ if has_sleep:
             ])
         )
     )
+    
     sleep_fig.show()
 else:
     display(Markdown(f"_**No Sleep Data Exists**_"))
@@ -1389,7 +1407,7 @@ all_surveys_long_df = (pd.concat(
 
 max_timestamps = [
     hr_df["TimestampISO"].max(),
-    sleep_df["StartISO"].max(),
+    sleep_df["EndISO"].max(),
     gait_df["TimestampISO"].max(),
     double_support_df["TimestampISO"].max(),
     all_surveys_long_df["Timestamp"].max()
@@ -1742,7 +1760,10 @@ physio_fig.update_xaxes(matches="x")
 physio_fig.update_xaxes(visible=False, rangeslider_visible=False)
 physio_fig.update_xaxes(visible=True, rangeslider_visible=True, row=4, col=1)
 
-physio_fig.update_layout(showlegend=False)
+physio_fig.update_layout(showlegend=False,
+        shapes=add_alternating_backgrouds(hr_sorted_df,"TimestampISO", day_start=6, night_start=18),
+        template="plotly_white"
+    )
 physio_fig.show()
 
 
