@@ -76,7 +76,7 @@ vars_used = [
     "row",
     "df_all_surveys",
     "df_all_surveys_list",
-    "df_watch_or_phone_list",
+    "df_sleep_watch_or_phone_list",
     "quest_name",
     "quest_value",
     "reg_arg",
@@ -90,6 +90,7 @@ vars_used = [
 numeric_pattern = re.compile(r"^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?")
 
 surveys_only_combined_list = ["UMI1001","UMI1002","UMI1003","UMI1004"]
+non_data_folder = {'CombinedFiles', 'NoSleep', 'UMI1030', 'logs', 'summaries', 'tmp_test_folder'}
 
 def extract_numeric(response):
     numeric_response = numeric_pattern.match(response)
@@ -98,6 +99,15 @@ def extract_numeric(response):
         return response
     number = float(numeric_response.group(0))
     return int(number) if number.is_integer() else number
+
+def to_standardized_timezone(time_col, time_zone) :
+    #Convert time column to datetime
+    time_col = pd.to_datetime(time_col, errors="coerce", utc=True, unit="ns")
+    #If there is no Timezone set, set timezone
+    if getattr(time_col.dt, "tz", None) is None:
+        return time_col.dt.tz_localize(time_zone)
+    # Convert the datetime to the desired timezone.
+    return time_col.dt.tz_convert(time_zone)
 
 
 df_sleep_list = []
@@ -108,7 +118,10 @@ df_cognitive_survey_list = []
 df_all_surveys_list = []
 df_asymmetry_list = []
 df_support_list = []
-df_watch_or_phone_list = []
+df_accel_list = []
+
+df_sleep_watch_or_phone_list = []
+df_accel_watch_or_phone_list = []
 particpant_id_list = []
 
 if os.path.exists(PathKeeper.completed_participant_path):
@@ -161,8 +174,7 @@ for participant in os.listdir(PathKeeper.inital_path):
                 s["filename"] = individual_file
                 s["ID"] = participant
                 s["file_type"] = file_type
-                s["submission_date"] = submission_date
-                df_watch_or_phone_list.append(s)
+                df_sleep_watch_or_phone_list.append(s)
                 del s
                 found_any = True
 
@@ -182,6 +194,40 @@ for participant in os.listdir(PathKeeper.inital_path):
                 df_sleep_list.append(s)
                 del s
                 found_any = True
+        elif individual_file.endswith("phoneAccel.csv") or individual_file.endswith(
+                    "watchAccel.csv"
+                ):
+                    print(individual_file)
+                    if individual_file.startswith("combined"):
+                        continue
+                    else:
+                        submission_date, nodate_file = individual_file.split()
+                        RID, file_type = nodate_file.split("_")
+                        file_type = file_type.removesuffix(".csv")
+                        s = pd.read_csv(os.path.join(participant_dir, individual_file))
+                        s["filename"] = individual_file
+                        s["ID"] = participant
+                        s["file_type"] = file_type
+                        s["submission_date"] = submission_date
+                        df_accel_watch_or_phone_list.append(s)
+                        del s
+                        found_any = True
+        elif individual_file.endswith("_accel.csv"):
+                    print(individual_file)
+                    if individual_file.startswith("combined"):
+                        continue
+                    else:
+                        submission_date, nodate_file = individual_file.split()
+                        RID, file_type = nodate_file.split("_")
+                        file_type = file_type.removesuffix(".csv")
+                        s = pd.read_csv(os.path.join(participant_dir, individual_file))
+                        s["filename"] = individual_file
+                        s["ID"] = participant
+                        s["file_type"] = file_type
+                        s["submission_date"] = submission_date
+                        df_accel_list.append(s)
+                        del s
+                        found_any = True
         elif individual_file.endswith("_heartrate.csv"):
             print(individual_file)
             if individual_file.startswith("combined"):
@@ -310,9 +356,12 @@ for participant in os.listdir(PathKeeper.inital_path):
         failed_participants.add(participant)
         print(f"Participant {participant}: no relevant files, NOT added to registry.")
 
+failed_participants = failed_participants - non_data_folder
 
-if df_watch_or_phone_list:
-    watch_or_phone_sleep_df = pd.concat(df_watch_or_phone_list, ignore_index=True)
+print(f"*****\n Participants added to registry {len(processed_participants)}.\n*****\n Participants failed to Add: {len(failed_participants)}")
+print("*****\n Now joining the files")
+if df_sleep_watch_or_phone_list:
+    watch_or_phone_sleep_df = pd.concat(df_sleep_watch_or_phone_list, ignore_index=True)
     watch_or_phone_sleep_df = watch_or_phone_sleep_df.sort_values(
         by=["ID", "Start"], ascending=[True, True]
     ).reset_index(drop=True)
@@ -340,16 +389,63 @@ if df_watch_or_phone_list:
         current_data["End"] = end_value
         new_rows.append(current_data)
 
-        df_sleep = pd.DataFrame(new_rows)
+        df_sleep_mulitpleSources = pd.DataFrame(new_rows)
 
+if df_accel_watch_or_phone_list:
+    df_accel_mulitpleSources =  pd.concat(df_accel_watch_or_phone_list, ignore_index=True)
+    df_accel_mulitpleSources = df_accel_mulitpleSources.drop_duplicates(subset=["Time"], keep="first")
+    df_accel_mulitpleSources["Time"] = to_standardized_timezone(df_accel_mulitpleSources["Time"], "America/Detroit")
+    df_accel_mulitpleSources["TimestampISO"] = to_standardized_timezone(df_accel_mulitpleSources["TimestampISO"], "America/Detroit")
+    df_accel_mulitpleSources["TimestampUnix"] = (df_accel_mulitpleSources['TimestampISO'] - pd.Timestamp("1970-01-01", tz="utc")) / (pd.Timedelta('1s'))
+    df_accel_mulitpleSources = df_accel_mulitpleSources.sort_values("Time", ascending=True).reset_index(drop=True)
+
+
+if df_accel_list:
+    df_accel = pd.concat(df_accel_list, ignore_index=True)
+    df_accel = df_accel.drop_duplicates(subset=["Time"], keep="first")
+    df_accel["Time"] = to_standardized_timezone(df_accel["Time"], "America/Detroit")
+    df_accel["TimestampISO"] = to_standardized_timezone(df_accel["TimestampISO"], "America/Detroit")
+    df_accel["TimestampUnix"] = (df_accel['TimestampISO'] - pd.Timestamp("1970-01-01", tz="utc")) / (pd.Timedelta('1s'))
+    df_accel = df_accel.sort_values("Time", ascending=True).reset_index(drop=True)
 
 if df_sleep_list:
     df_sleep = pd.concat(df_sleep_list, ignore_index=True)
     df_sleep = df_sleep.drop_duplicates(subset=["Start"], keep="first")
+    df_sleep["StartISO"] = to_standardized_timezone(df_sleep["StartISO"], "America/Detroit")
+    df_sleep["EndISO"] = to_standardized_timezone(df_sleep["EndISO"], "America/Detroit")
+
+if not df_accel_mulitpleSources.empty:
+    df_accel = pd.concat([df_accel, df_accel_mulitpleSources], ignore_index=True)
+    df_accel = df_accel.drop_duplicates(subset=["Time"], keep="first")
+    df_accel["Time"] = to_standardized_timezone(df_accel["Time"], "America/Detroit")
+    df_accel["TimestampISO"] = to_standardized_timezone(df_accel["TimestampISO"], "America/Detroit")
+
+if not df_sleep_mulitpleSources.empty:
+    df_sleep = pd.concat([df_sleep, df_sleep_mulitpleSources], ignore_index=True)
+    df_sleep["StartISO"] = to_standardized_timezone(df_sleep["StartISO"], "America/Detroit")
+    df_sleep["EndISO"] = to_standardized_timezone(df_sleep["EndISO"], "America/Detroit")
 
 if df_hr_list:
     df_hr = pd.concat(df_hr_list, ignore_index=True)
     df_hr = df_hr.drop_duplicates(subset=["Timestamp"], keep="first")
+    df_hr["TimestampISO"] = to_standardized_timezone(df_hr["TimestampISO"], "America/Detroit")
+
+if df_gait_list:
+    df_gait = pd.concat(df_gait_list, ignore_index=True)
+    df_gait = df_gait.drop_duplicates(subset=["Timestamp"], keep="first")
+    df_gait["TimestampISO"] = to_standardized_timezone(df_gait["TimestampISO"], "America/Detroit")
+
+
+if df_asymmetry_list:
+    df_asymmetry = pd.concat(df_asymmetry_list, ignore_index=True)
+    df_asymmetry = df_asymmetry.drop_duplicates(subset=["Timestamp"], keep="first")
+    df_asymmetry["TimestampISO"] = to_standardized_timezone(df_asymmetry["TimestampISO"], "America/Detroit")
+
+if df_support_list:
+    df_support = pd.concat(df_support_list, ignore_index=True)
+    df_support = df_support.drop_duplicates(subset=["Timestamp"], keep="first")
+    df_support["TimestampISO"] = to_standardized_timezone(df_support["TimestampISO"], "America/Detroit")
+
 
 if df_survey_list:
     for survey in df_survey_list:
@@ -358,6 +454,7 @@ if df_survey_list:
     df_survey = pd.concat(df_survey_list, ignore_index=True)
     #df_survey=df_survey.drop(['umid,DATE_KEY,ANSWERS,,,,', "DATE_KEY,ANSWERS"], axis=1)
     df_survey = df_survey.drop_duplicates(subset=["Survey","Timestamp"], keep="first")
+    df_survey["Timestamp"] = to_standardized_timezone(df_survey["Timestamp"], "America/Detroit")
 
 #del survey
 
@@ -365,17 +462,8 @@ if df_cognitive_survey_list:
     df_cognitive_survey = pd.concat(df_cognitive_survey_list, ignore_index=True)
     df_cognitive_survey = df_cognitive_survey.drop_duplicates(subset=["Timestamp"], keep="first")
     #df_cognitive_survey=df_cognitive_survey.drop(['umid,DATE_KEY,ANSWERS,,,,', "DATE_KEY,ANSWERS"], axis=1)
+    df_cognitive_survey["Timestamp"] = to_standardized_timezone(df_cognitive_survey["Timestamp"], "America/Detroit")
 
-if df_gait_list:
-    df_gait = pd.concat(df_gait_list, ignore_index=True)
-    df_gait = df_gait.drop_duplicates(subset=["Timestamp"], keep="first")
-if df_asymmetry_list:
-    df_asymmetry = pd.concat(df_asymmetry_list, ignore_index=True)
-    df_asymmetry = df_asymmetry.drop_duplicates(subset=["Timestamp"], keep="first")
-
-if df_support_list:
-    df_support = pd.concat(df_support_list, ignore_index=True)
-    df_support = df_support.drop_duplicates(subset=["Timestamp"], keep="first")
 
 df_sleep = df_sleep if "df_sleep" in locals() else pd.DataFrame()
 df_hr = df_hr if "df_hr" in locals() else pd.DataFrame()
@@ -412,6 +500,14 @@ if not df_hr.empty:
         os.path.join(PathKeeper.merged_data_path, "hr_collapsed.csv"),
         index_label="index_1",
     )
+
+if not df_accel.empty:
+    df_accel = df_accel[meta_data + [col for col in df_accel.columns if col not in meta_data]]
+    df_accel.to_csv(
+        os.path.join(PathKeeper.merged_data_path, "accel_collapsed.csv"),
+        index_label="index_1",
+    )
+
 if not df_survey.empty:
     df_survey = df_survey[
         survey_meta_data
