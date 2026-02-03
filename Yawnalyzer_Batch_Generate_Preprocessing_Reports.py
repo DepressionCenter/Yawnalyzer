@@ -100,4 +100,4 @@ for id in id_df.unique():
             f.write(f"Could not Render: {id} \n")
         print(stderr)
 
-print("Finished Rendering")
+print("Finished Rendering Reports")
