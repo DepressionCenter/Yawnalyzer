@@ -206,7 +206,7 @@ def add_traces_single_plot(source_fig, *, name_override=None, reset_axes=False):
 
 def to_standarized_timezone(time_col, time_zone) :
     #Convert time column to datetime
-    time_col = pd.to_datetime(time_col, errors="coerce")
+    time_col = pd.to_datetime(time_col, errors="coerce", utc=True, unit="ns")
     #If there is no Timezone set, set timezone
     if getattr(time_col.dt, "tz", None) is None:
         return time_col.dt.tz_localize(time_zone)
@@ -216,7 +216,7 @@ def to_standarized_timezone(time_col, time_zone) :
 
 def add_alternating_backgrouds(df, time_col, day_start=6, night_start=18, night_color="rgba(87, 132, 210, .4)", day_color="rgba(250, 235, 215, .4)"):
     df_copy = df.copy()
-    df_copy[time_col] = to_standarized_timezone(df_copy[time_col],time_zone="America/Detroit")
+    df_copy[time_col] = to_standardized_timezone(df_copy[time_col],time_zone="America/Detroit")
     time_series = df_copy[time_col]
     start_time = time_series.min().floor('D')
     end_time = time_series.max().ceil("D")
@@ -552,15 +552,15 @@ sleep_survey_df = sleep_survey_df.sort_values("Timestamp").copy()
 #| warning: false
 #| message: false
 
-hr_df["TimestampISO"] = to_standarized_timezone(hr_df["TimestampISO"], "America/Detroit")
-sleep_df["StartISO"]  = to_standarized_timezone(sleep_df["StartISO"], "America/Detroit")
-sleep_df["EndISO"]    = to_standarized_timezone(sleep_df["EndISO"], "America/Detroit")
-gait_df["TimestampISO"] = to_standarized_timezone(gait_df["TimestampISO"], "America/Detroit")
-double_support_df["TimestampISO"] = to_standarized_timezone(double_support_df["TimestampISO"], "America/Detroit")
-asymmetry_df["TimestampISO"] = to_standarized_timezone(asymmetry_df["TimestampISO"], "America/Detroit")
-cognitive_survey_df["Timestamp"] = to_standarized_timezone(cognitive_survey_df["Timestamp"], "America/Detroit")
-fatigue_survey_df["Timestamp"]   = to_standarized_timezone(fatigue_survey_df["Timestamp"], "America/Detroit")
-sleep_survey_df["Timestamp"]     = to_standarized_timezone(sleep_survey_df["Timestamp"], "America/Detroit")
+hr_df["TimestampISO"] = to_standardized_timezone(hr_df["TimestampISO"], "America/Detroit")
+sleep_df["StartISO"]  = to_standardized_timezone(sleep_df["StartISO"], "America/Detroit")
+sleep_df["EndISO"]    = to_standardized_timezone(sleep_df["EndISO"], "America/Detroit")
+gait_df["TimestampISO"] = to_standardized_timezone(gait_df["TimestampISO"], "America/Detroit")
+double_support_df["TimestampISO"] = to_standardized_timezone(double_support_df["TimestampISO"], "America/Detroit")
+asymmetry_df["TimestampISO"] = to_standardized_timezone(asymmetry_df["TimestampISO"], "America/Detroit")
+cognitive_survey_df["Timestamp"] = to_standardized_timezone(cognitive_survey_df["Timestamp"], "America/Detroit")
+fatigue_survey_df["Timestamp"]   = to_standardized_timezone(fatigue_survey_df["Timestamp"], "America/Detroit")
+sleep_survey_df["Timestamp"]     = to_standardized_timezone(sleep_survey_df["Timestamp"], "America/Detroit")
 
 
 first_timestamps = [
