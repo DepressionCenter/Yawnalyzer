@@ -864,7 +864,7 @@ else:
 
 ```
 
-## Hypnograph-like plot
+## Hypnogram-like plot
 
 ```{python}
 #| label: Hypnogram
