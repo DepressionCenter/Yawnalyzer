@@ -274,6 +274,7 @@ hr_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"hr_collapsed.csv")
   "ID": "string",
   "submission_date": "string",
   "file_type": "string",
+  "filename": "string",
   "HR": "float64",
   "Timestamp":  "float64",
   "filename": "string",
@@ -281,9 +282,15 @@ hr_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"hr_collapsed.csv")
  }
 )
 
-sleep_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"sleep_collapsed.csv"), index_col=["index_1"])
-
-accel_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"accel_collapsed.csv"), index_col=["index_1"])
+accel_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"accel_collapsed.csv"), index_col=["index_1"],engine="pyarrow", dtype={
+    "ID":"string",
+    "submission_date": "string",
+    "file_type":"string",
+    "x": "float64",
+    "y": "float64",
+    "z": "float64",
+    "TimestampUnix": "float64"
+}, parse_dates=["Time", "TimestampISO"])
 
 sleep_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"sleep_collapsed.csv"), parse_dates=["StartISO","EndISO"], index_col=["index_1"])
 
@@ -304,7 +311,7 @@ sleep_survey_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path, "sleep_s
 
 hr_df = hr_df[hr_df["ID"] == RID].copy()
 sleep_df = sleep_df[sleep_df["ID"] == RID].copy()
-accel_df = gait_df[accel_df["ID"] == RID].copy()
+accel_df = accel_df[accel_df["ID"] == RID].copy()
 gait_df = gait_df[gait_df["ID"] == RID].copy()
 double_support_df = double_support_df[double_support_df["ID"] == RID].copy()
 asymmetry_df = asymmetry_df[asymmetry_df["ID"] == RID].copy()
@@ -483,7 +490,7 @@ has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
 
 # Accel
 
-accel_df["TimestampISO] = pd.to_datetime(accel_df["TimestampISO"], utc=True).dt.tz_convert(
+accel_df["TimestampISO"] = pd.to_datetime(accel_df["TimestampISO"], utc=True).dt.tz_convert(
     "America/Detroit"
 )
 
