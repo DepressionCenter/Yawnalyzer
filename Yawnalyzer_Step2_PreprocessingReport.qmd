@@ -511,7 +511,7 @@ double_support_df["TimestampISO"] = (
 )
 # Asymmetry
 
-asymmetry_df["TimestampISO"] = pd.to_datetime(asymmetry_df["TimestampISO"], utc=False)
+asymmetry_df["TimestampISO"] = pd.to_datetime(asymmetry_df["TimestampISO"], utc=True, format="ISO8601")
 
 asymmetry_df["TimestampISO"] = (
     asymmetry_df["TimestampISO"]
@@ -775,7 +775,7 @@ else:
 ## General Information
 
 ```{python}
-#| eval: True
+#| eval: false
 #| echo: false
 #| warning: false
 #| message: false
@@ -1081,7 +1081,7 @@ if has_gait:
         )
     )
     gait_fig.add_hline(y=50, line_dash="dash", line_color="green", annotation_text="Balanced Gait")
-    gait_fig.show()
+    gait_fig
 else:
     gait_sorted_df = gait_df.sort_values(by="TimestampISO")
     gait_sorted_df["TimestampISO"] = pd.to_datetime(gait_sorted_df["TimestampISO"], errors="coerce").dt.as_unit("ns").tz_convert("America/Detroit")
@@ -1890,8 +1890,22 @@ fig = go.Figure(data=all_traces)
 
 fig.update_xaxes(rangeslider_visible=True)
 
-fig.update_layout(title="Shared Plot")
-fig.show()
+fig.update_layout(title="Shared Plot", template="plotly_white")
+fig
+```
+
+```{python}
+#| eval: false
+#| 
+sleep_stage = all_data_df["Asleep"].replace([0,1],["W","S"])
+
+hyp = yasa.Hypnogram(sleep_stage, n_stages=2, freq='30s')
+
+hyp2 =yasa.plot_hypnogram(hyp)
+
+plt.axis(xmin=0,xmax=10)
+
+plt.show()
 ```
 
 ### Notices and Metainfo {.unnumbered .unlisted}
