@@ -281,6 +281,9 @@ hr_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"hr_collapsed.csv")
  }
 )
 
+sleep_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"sleep_collapsed.csv"), index_col=["index_1"])
+
+accel_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"accel_collapsed.csv"), index_col=["index_1"])
 
 sleep_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"sleep_collapsed.csv"), parse_dates=["StartISO","EndISO"], index_col=["index_1"])
 
@@ -301,6 +304,7 @@ sleep_survey_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path, "sleep_s
 
 hr_df = hr_df[hr_df["ID"] == RID].copy()
 sleep_df = sleep_df[sleep_df["ID"] == RID].copy()
+accel_df = gait_df[accel_df["ID"] == RID].copy()
 gait_df = gait_df[gait_df["ID"] == RID].copy()
 double_support_df = double_support_df[double_support_df["ID"] == RID].copy()
 asymmetry_df = asymmetry_df[asymmetry_df["ID"] == RID].copy()
@@ -358,6 +362,8 @@ if "all_surveys_df" in locals() and len(all_surveys_df) >0:
 has_hr ="hr_df" in locals() and len(hr_df) > 0
 
 has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
+
+accel_sleep ="acell_df" in locals() and len(acell_df) > 0
 
 has_gait ="gait_df" in locals() and len(gait_df) > 0
 
@@ -475,6 +481,19 @@ sleep_df=sleep_df.drop(["Before_or_After_noon","Duration"], axis=1)
 
 has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
 
+# Accel
+
+accel_df["TimestampISO] = pd.to_datetime(accel_df["TimestampISO"], utc=True).dt.tz_convert(
+    "America/Detroit"
+)
+
+accel_df["TimestampISO"] = (
+    accel_df["TimestampISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(accel["Time"], unit="s", utc=True))
+)
+
+
 #Heart Rate
 
 hr_df["TimestampISO"] = pd.to_datetime(hr_df["TimestampISO"],errors="coerce", utc=True)
@@ -548,6 +567,7 @@ sleep_survey_df["Timestamp"] = pd.to_datetime(sleep_survey_df["Timestamp"],error
 
 hr_df=hr_df.sort_values(by="TimestampISO").copy()
 sleep_df = sleep_df.sort_values(by="StartISO").copy()
+accel_df = accel_df.sort_values(by="TimestampISO").copy()
 gait_df = gait_df.sort_values(by="TimestampISO").copy()
 double_support_df = double_support_df.sort_values("TimestampISO").copy()
 asymmetry_df = asymmetry_df.sort_values("TimestampISO").copy()
@@ -567,6 +587,7 @@ sleep_survey_df = sleep_survey_df.sort_values("Timestamp").copy()
 hr_df["TimestampISO"] = to_standardized_timezone(hr_df["TimestampISO"], "America/Detroit")
 sleep_df["StartISO"]  = to_standardized_timezone(sleep_df["StartISO"], "America/Detroit")
 sleep_df["EndISO"]    = to_standardized_timezone(sleep_df["EndISO"], "America/Detroit")
+accel_df["TimestampISO] = to_standarized_timezone(accel_df["TimestampISO"], "America/Detroit")
 gait_df["TimestampISO"] = to_standardized_timezone(gait_df["TimestampISO"], "America/Detroit")
 double_support_df["TimestampISO"] = to_standardized_timezone(double_support_df["TimestampISO"], "America/Detroit")
 asymmetry_df["TimestampISO"] = to_standardized_timezone(asymmetry_df["TimestampISO"], "America/Detroit")
@@ -578,6 +599,7 @@ sleep_survey_df["Timestamp"]     = to_standardized_timezone(sleep_survey_df["Tim
 first_timestamps = [
     hr_df["TimestampISO"].min(),
     sleep_df.loc[sleep_df["KeepOrDrop"] == 1, "StartISO"].min(),
+    accel_df["TimestampISO"].min(),
     gait_df["TimestampISO"].min(),
     double_support_df["TimestampISO"].min(),
     asymmetry_df["TimestampISO"].min(),
@@ -597,6 +619,7 @@ first_timestamps = [
 last_timestamps = [
     hr_df["TimestampISO"].max(),
     sleep_df.loc[sleep_df["KeepOrDrop"] == 1,"EndISO"].max(),
+    accel_df["TimestampISO"].max(),
     gait_df["TimestampISO"].max(),
     double_support_df["TimestampISO"].max(),
     asymmetry_df["TimestampISO"].max(),
@@ -630,6 +653,9 @@ gait_df = gait_df.loc[
     (gait_df["TimestampISO"] >= start) & (gait_df["TimestampISO"] <= end) 
 ].copy()
 
+#Accel 
+accel_df = accel_df.loc[ (accel_df["TimestampISO"] >= start) & (accel_df["TimestampISO"] <= end)].copy()
+
 # Double Support 
 double_support_df = double_support_df.loc[
     (double_support_df["TimestampISO"] >= start) & (double_support_df["TimestampISO"] <= end) 
@@ -662,6 +688,8 @@ sleep_survey_df = sleep_survey_df.loc[
 has_hr ="hr_df" in locals() and len(hr_df) > 0
 
 has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
+
+has_accel = "accel_df" in locals() and len(accel_df)>0
 
 has_gait ="gait_df" in locals() and len(gait_df) > 0
 
@@ -849,7 +877,7 @@ else:
 
 ```
 
-## Hypnogramh-like plot
+## Hypnogram-like plot
 
 ```{python}
 #| label: Hypnogram-Like Plot
@@ -1004,6 +1032,50 @@ else:
 
 ```
 
+# Acceleration
+
+## General Information
+
+```{python}
+#| eval: true
+#| echo: false
+#| warning: false
+#| message: false
+
+if has_accel:
+    display(prettify_info(accel_df))
+else:
+    display(Markdown(f"_**No Acceleration Data Exists**_"))
+
+```
+
+## Plot
+
+```{python}
+if has_accel:
+    accel_long_df = accel_df.melt(id_vars=["ID","TimestampISO"], value_vars=["X","y","z" ], var_name='Direction', value_name='Value')
+    accel_long_df["TimestampISO"] = (
+    pd.to_datetime(accel_long_df["TimestampISO"], utc=True, errors="coerce")
+    .dt.tz_convert("America/Detroit")
+    .infer_objects()
+)   
+
+    accel_long_df = accel_long_df.sort_values(by="TimestampISO")
+
+    accel_fig = px.line(
+        accel_long_df,
+        x="TimestampISO",
+        y="Value",
+        color="Direction",
+        markers=True
+    )
+    accel_fig
+
+else:
+    #accel_long_ = gait_df.sort_values(by="TimestampISO")
+    #gait_sorted_df["TimestampISO"] = pd.to_datetime(gait_sorted_df["TimestampISO"], errors="coerce").dt.tz_convert("America/Detroit")
+    display(Markdown(f"_**No Acceleration Data Exists**_")
+```
 
 ## Number of Consecutive 
 
