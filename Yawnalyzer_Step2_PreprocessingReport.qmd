@@ -554,6 +554,7 @@ sleep_survey_df["Timestamp"] = pd.to_datetime(sleep_survey_df["Timestamp"],error
 
 hr_df=hr_df.sort_values(by="TimestampISO").copy()
 sleep_df = sleep_df.sort_values(by="StartISO").copy()
+accel_df = accel_df.sort_values(by="TimestampISO").copy()
 gait_df = gait_df.sort_values(by="TimestampISO").copy()
 double_support_df = double_support_df.sort_values("TimestampISO").copy()
 asymmetry_df = asymmetry_df.sort_values("TimestampISO").copy()
@@ -573,6 +574,7 @@ sleep_survey_df = sleep_survey_df.sort_values("Timestamp").copy()
 hr_df["TimestampISO"] = to_standarized_timezone(hr_df["TimestampISO"], "America/Detroit")
 sleep_df["StartISO"]  = to_standarized_timezone(sleep_df["StartISO"], "America/Detroit")
 sleep_df["EndISO"]    = to_standarized_timezone(sleep_df["EndISO"], "America/Detroit")
+accel_df["TimestampISO] = to_standarized_timezone(accel_df["TimestampISO"], "America/Detroit")
 gait_df["TimestampISO"] = to_standarized_timezone(gait_df["TimestampISO"], "America/Detroit")
 double_support_df["TimestampISO"] = to_standarized_timezone(double_support_df["TimestampISO"], "America/Detroit")
 asymmetry_df["TimestampISO"] = to_standarized_timezone(asymmetry_df["TimestampISO"], "America/Detroit")
@@ -584,6 +586,7 @@ sleep_survey_df["Timestamp"]     = to_standarized_timezone(sleep_survey_df["Time
 first_timestamps = [
     hr_df["TimestampISO"].min(),
     sleep_df.loc[sleep_df["KeepOrDrop"] == 1, "StartISO"].min(),
+    accel_df["TimestampISO"].min(),
     gait_df["TimestampISO"].min(),
     double_support_df["TimestampISO"].min(),
     asymmetry_df["TimestampISO"].min(),
@@ -603,6 +606,7 @@ first_timestamps = [
 last_timestamps = [
     hr_df["TimestampISO"].max(),
     sleep_df.loc[sleep_df["KeepOrDrop"] == 1,"EndISO"].max(),
+    accel_df["TimestampISO"].max(),
     gait_df["TimestampISO"].max(),
     double_support_df["TimestampISO"].max(),
     asymmetry_df["TimestampISO"].max(),
@@ -636,6 +640,9 @@ gait_df = gait_df.loc[
     (gait_df["TimestampISO"] >= start) & (gait_df["TimestampISO"] <= end) 
 ].copy()
 
+#Accel 
+accel_df = accel_df.loc[ (accel_df["TimestampISO"] >= start) & (accel_df["TimestampISO"] <= end)].copy()
+
 # Double Support 
 double_support_df = double_support_df.loc[
     (double_support_df["TimestampISO"] >= start) & (double_support_df["TimestampISO"] <= end) 
@@ -668,6 +675,8 @@ sleep_survey_df = sleep_survey_df.loc[
 has_hr ="hr_df" in locals() and len(hr_df) > 0
 
 has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
+
+has_accel = "accel_df" in locals() and len(accel_df)>0
 
 has_gait ="gait_df" in locals() and len(gait_df) > 0
 
@@ -1010,6 +1019,50 @@ else:
 
 ```
 
+# Acceleration
+
+## General Information
+
+```{python}
+#| eval: true
+#| echo: false
+#| warning: false
+#| message: false
+
+if has_accel:
+    display(prettify_info(accel_df))
+else:
+    display(Markdown(f"_**No Acceleration Data Exists**_"))
+
+```
+
+## Plot
+
+```{python}
+if has_accel:
+    accel_long_df = accel_df.melt(id_vars=["ID","TimestampISO"], value_vars=["X","y","z" ], var_name='Direction', value_name='Value')
+    accel_long_df["TimestampISO"] = (
+    pd.to_datetime(accel_long_df["TimestampISO"], utc=True, errors="coerce")
+    .dt.tz_convert("America/Detroit")
+    .infer_objects()
+)   
+
+    accel_long_df = accel_long_df.sort_values(by="TimestampISO")
+
+    accel_fig = px.line(
+        accel_long_df,
+        x="TimestampISO",
+        y="Value",
+        color="Direction",
+        markers=True
+    )
+    accel_fig
+
+else:
+    #accel_long_ = gait_df.sort_values(by="TimestampISO")
+    #gait_sorted_df["TimestampISO"] = pd.to_datetime(gait_sorted_df["TimestampISO"], errors="coerce").dt.tz_convert("America/Detroit")
+    display(Markdown(f"_**No Acceleration Data Exists**_")
+```
 
 ## Number of Consecutive 
 
