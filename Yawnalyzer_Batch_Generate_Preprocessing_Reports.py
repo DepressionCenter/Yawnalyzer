@@ -70,13 +70,12 @@ def render_report(
 for file in os.listdir(PathKeeper.merged_data_path):
     if file.endswith("csv"):
         current_file = pd.read_csv(
-            Path(os.path.join(PathKeeper.merged_data_path, file))
+            Path(os.path.join(PathKeeper.merged_data_path, file), usecols=["ID"])
         )
         current_file = current_file["ID"]
         IDs_list.append(current_file)
 
 id_df = pd.concat(IDs_list, ignore_index=True).sort_values().reset_index(drop=True)
-
 
 for id in id_df.unique():
     render_datetime = datetime.datetime.now().strftime("%Y_%m_%d_T%H_%M_%S")
