@@ -280,6 +280,8 @@ hr_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"hr_collapsed.csv")
 
 sleep_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"sleep_collapsed.csv"), index_col=["index_1"])
 
+accel_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"accel_collapsed.csv"), index_col=["index_1"])
+
 gait_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"gait_collapsed.csv"), index_col=["index_1"])
 
 double_support_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"double_support_collapsed.csv"), index_col=["index_1"])
@@ -297,6 +299,7 @@ sleep_survey_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path, "sleep_s
 
 hr_df = hr_df[hr_df["ID"] == RID].copy()
 sleep_df = sleep_df[sleep_df["ID"] == RID].copy()
+accel_df = gait_df[accel_df["ID"] == RID].copy()
 gait_df = gait_df[gait_df["ID"] == RID].copy()
 double_support_df = double_support_df[double_support_df["ID"] == RID].copy()
 asymmetry_df = asymmetry_df[asymmetry_df["ID"] == RID].copy()
@@ -354,6 +357,8 @@ if "all_surveys_df" in locals() and len(all_surveys_df) >0:
 has_hr ="hr_df" in locals() and len(hr_df) > 0
 
 has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
+
+accel_sleep ="acell_df" in locals() and len(acell_df) > 0
 
 has_gait ="gait_df" in locals() and len(gait_df) > 0
 
@@ -463,6 +468,19 @@ sleep_df["EndISO"] = (
 sleep_df=sleep_df.drop(["Before_or_After_noon","Duration"], axis=1)
 
 has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
+
+# Accel
+
+accel_df["TimestampISO] = pd.to_datetime(accel_df["TimestampISO"], utc=True).dt.tz_convert(
+    "America/Detroit"
+)
+
+accel_df["TimestampISO"] = (
+    accel_df["TimestampISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(accel["Time"], unit="s", utc=True))
+)
+
 
 #Heart Rate
 
