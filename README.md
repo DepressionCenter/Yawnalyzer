@@ -8,18 +8,24 @@ Automated data cleaning and sleep/gait metrics for Apple Watch data collected vi
 
 
 ## Quick Start Guide
-+ Coming soon!
++ To use this with your own data, first download and extract this repository (or clone it)
++ Install required packages using either of the following methods in your virtual environment
+    + ```pip install -r requirement.txt```
+    + (when in the folder in ```pyoproject.toml``` file) ```uv sync``` 
++ Install Quarto CLI
++ Use the `PathKeeper_template.py` file to create a personalized `PathKeeper.py` file.
+
 
 
 
 ## Documentation
-+ The full documentation is available at the Esinberg Family Depression Center's Health Research Resource Library: https://michmed.org/efdc-kb
++ The full documentation is available at the Esinberg Family Depression Center's Health Research Resource Library: [https://michmed.org/efdc-kb](https://michmed.org/efdc-kb)
 
 
 
 
 ## Additional Resources
-+ None
++ Quarto CLI Download: [https://quarto.org/docs/get-started/](https://quarto.org/docs/get-started/])
 
 
 
