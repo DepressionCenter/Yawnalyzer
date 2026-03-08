@@ -370,7 +370,7 @@ has_hr ="hr_df" in locals() and len(hr_df) > 0
 
 has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
 
-accel_sleep ="acell_df" in locals() and len(acell_df) > 0
+has_accel ="accel_df" in locals() and len(accel_df) > 0
 
 has_gait ="gait_df" in locals() and len(gait_df) > 0
 
@@ -497,9 +497,10 @@ accel_df["TimestampISO"] = pd.to_datetime(accel_df["TimestampISO"], utc=True).dt
 accel_df["TimestampISO"] = (
     accel_df["TimestampISO"]
     .infer_objects()
-    .fillna(pd.to_datetime(accel["Time"], unit="s", utc=True))
+    .fillna(pd.to_datetime(accel_df["Time"], unit="s", utc=True))
 )
 
+accel_df = accel_df.drop("Time", axis=1)
 
 #Heart Rate
 
@@ -594,7 +595,7 @@ sleep_survey_df = sleep_survey_df.sort_values("Timestamp").copy()
 hr_df["TimestampISO"] = to_standardized_timezone(hr_df["TimestampISO"], "America/Detroit")
 sleep_df["StartISO"]  = to_standardized_timezone(sleep_df["StartISO"], "America/Detroit")
 sleep_df["EndISO"]    = to_standardized_timezone(sleep_df["EndISO"], "America/Detroit")
-accel_df["TimestampISO] = to_standarized_timezone(accel_df["TimestampISO"], "America/Detroit")
+accel_df["TimestampISO"] = to_standardized_timezone(accel_df["TimestampISO"], "America/Detroit")
 gait_df["TimestampISO"] = to_standardized_timezone(gait_df["TimestampISO"], "America/Detroit")
 double_support_df["TimestampISO"] = to_standardized_timezone(double_support_df["TimestampISO"], "America/Detroit")
 asymmetry_df["TimestampISO"] = to_standardized_timezone(asymmetry_df["TimestampISO"], "America/Detroit")
@@ -1076,12 +1077,29 @@ if has_accel:
         color="Direction",
         markers=True
     )
-    accel_fig
+
+    accel_fig.update_layout(
+        shapes=add_alternating_backgrouds(gait_sorted_df,"TimestampISO", day_start=6, night_start=18),
+        template="plotly_white"
+    )
+    accel_fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1 day", step="day", stepmode="backward"),
+                dict(count=3, label="3 days", step="day", stepmode="backward"),
+                dict(count=5, label="5 day", step="day", stepmode="backward"),
+                dict(count=7, label="1 week", step="day", stepmode="backward"),
+                dict(step="all")
+            ])
+        )
+    )
+    accel_fig.show()
 
 else:
     #accel_long_ = gait_df.sort_values(by="TimestampISO")
     #gait_sorted_df["TimestampISO"] = pd.to_datetime(gait_sorted_df["TimestampISO"], errors="coerce").dt.tz_convert("America/Detroit")
-    display(Markdown(f"_**No Acceleration Data Exists**_")
+    display(Markdown(f"_**No Acceleration Data Exists**_"))
 ```
 
 ## Number of Consecutive 
@@ -1833,6 +1851,7 @@ new_presence_row=pd.DataFrame([{
     "ID": RID,
     "HR_Present": has_hr,
     "Sleep_Present": has_sleep,
+    "Acceleration_Present": has_accel,
     "Double_Support_Present": has_double_support,
     "Asymmetry_Present": has_asymmetry, 
     "Cognitive_Survey_Present": has_cognitive_survey,
