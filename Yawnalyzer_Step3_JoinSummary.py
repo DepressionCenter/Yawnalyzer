@@ -57,3 +57,7 @@ total_sleep = pd.concat(sleep_summary_list, ignore_index=True)
 total_overall = pd.concat(overall_summary_list, ignore_index=True)
 total_gaps = pd.concat(gaps_hr_list, ignore_index=True)
 
+total_hr.to_csv(os.path.join(PathKeeper.summarized_data_path,"All_Participants","Overall_HRAndSleep.csv"), index=False)
+total_sleep.to_csv(os.path.join(PathKeeper.summarized_data_path,"All_Participants","Overall_SleepSessions.csv"), index=False)
+total_overall.to_csv(os.path.join(PathKeeper.summarized_data_path,"All_Participants","Overall_SleepStreaksVariability.csv"), index=False)
+total_gaps.to_csv(os.path.join(PathKeeper.summarized_data_path,"All_Participants","Overall_GapsBetweenHRRecordings.csv"), index=False)
