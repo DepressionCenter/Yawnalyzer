@@ -1,0 +1,1552 @@
+---
+title: "Dashboard"
+subtitle: "Prototype"
+date: last-modified
+date-format: "[Last Modified:] DD MMM YYYY"
+license: "GPL-3.0-or-later"
+copyright:
+    holder: "The Regents of the University of Michigan"
+    year: 2025
+rights: |
+    © 2025 The Regents of the University of Michigan.
+    
+    This file is part of Yawnalyzer.
+    
+    Yawnalyzer is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+format:
+    html:
+        toc: true
+        toc-depth: 3
+        code-fold: true
+        df-print: paged
+        embed-resources: true
+        html-math-method: mathjax
+jupyter: python3
+---
+
+```{python}
+
+#| tags: [parameters]
+#| echo: false
+#| message:
+#| code-fold: false
+
+RID = "SUBJECT_NAME"
+
+from plotly.graph_objs.layout.xaxis import rangeslider
+```
+
+```{python}
+
+#| label: "Import_Packages" 
+#| echo: false
+#| message:
+#| code-fold: false
+
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+#import neurokit2 as nk
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.graph_objs.layout.xaxis import rangeslider
+from plotly.subplots import make_subplots
+import datetime as dt
+from datetime import datetime, timedelta
+from IPython.display import Markdown, display
+import session_info
+import yasa
+import copy
+import PathKeeper
+
+```
+
+# About this Report
+
+```{python}
+
+#| label: ParticipantID
+#| code-hide: true
+#| echo: false
+
+
+
+Markdown(f"> Participant: _**{RID}**_")
+
+```
+
+> Generation Date: `{python} dt.datetime.now().strftime("%Y-%m-%d")`
+
+This is a Prototpye  Dashboard for Subject ID (SID) **`{python} RID`** from the MS-EMA project (IRB #HUM00265263; PI: Tiffany Braley, MD). MS-EMA is an Apple watch-based sleep tracking study conducted with patients with Multiple Sclerosis.
+
+The goal for this dashboard is to provide an example way in which one could examine the data as a whole, to look for trends and relationships visually on multiple-timescales and resolutions, accross data sources and types.
+
+Data for the above were collected over the span of approximately 12 weeks for each subject. Plots contained within this report are summarized by week.
+
+
+```{python}
+
+#| label: "Functions"
+#| echo: false
+#| warning: false
+#| message: false
+
+def add_fig_traces(fig_collection, source_fig, start_row,end_row, col=1, reset_axes=True, empty_label="No data",yaxis_range=None):
+
+    n_rows = end_row - start_row + 1
+    source_traces = (
+        list(source_fig.data)
+        if (source_fig is not None and hasattr(source_fig, "data"))
+        else []
+    )
+    
+    for i in range(n_rows):
+        row = start_row + i
+
+        if i < len(source_traces):
+            trace2 = copy.deepcopy(source_traces[i])
+            if reset_axes:
+                trace2.xaxis = None
+                trace2.yaxis = None
+            fig_collection.add_trace(trace2, row=row, col=col)
+        else:
+            # Placeholder trace 
+            fig_collection.add_trace(
+                go.Scatter(
+                    x=[],
+                    y=[],
+                    mode="lines",
+                    showlegend=False,
+                    hoverinfo="skip",
+                ),
+                row=row,
+                col=col,
+            )
+
+            # Add "No data" label within this subplot
+            fig_collection.add_annotation(
+                text=empty_label,
+                x=0.5,
+                y=0.5,
+                xref="x domain",
+                yref="y domain",
+                showarrow=False,
+                font=dict(color="gray"),
+                row=row,
+                col=col,
+            )
+            
+
+def add_traces_single_plot(source_fig, *, name_override=None, reset_axes=False):
+    if source_fig is None or not hasattr(source_fig, "data") or len(source_fig.data) == 0:
+        return []
+    
+    traces = []
+    for trace in source_fig.data:
+        copied_trace = copy.deepcopy(trace)
+
+        copied_trace.xaxis="x"
+        copied_trace.yaxis = "y"
+        
+        if name_override is not None:
+            copied_trace.name=name_override
+        
+        traces.append(copied_trace)
+    return traces
+
+def to_standardized_timezone(time_column, time_zone) :
+    #Convert time column to datetime
+    time_column = pd.to_datetime(time_column, errors="coerce", utc=True, unit="ns")
+    #If there is no Timezone set, set timezone
+    if getattr(time_column.dt, "tz", None) is None:
+        return time_column.dt.tz_localize(time_zone)
+    # Convert the datetime to the desired timezone.
+    return time_column.dt.tz_convert(time_zone)
+
+
+
+def add_alternating_backgrounds(df, time_column, day_start=6, night_start=18, night_color="rgba(87, 132, 210, .4)", day_color="rgba(250, 235, 215, .4)"):
+    df_copy = df.copy()
+    df_copy[time_column] = to_standardized_timezone(df_copy[time_column],time_zone="America/Detroit")
+    df_copy[time_column] = df_copy[time_column]
+    time_series = df_copy[time_column]
+    start_time = time_series.min().floor('D')
+    end_time = time_series.max().ceil("D")
+
+    days_range = pd.date_range(start_time, end_time, freq="D")
+
+    canvas=[]
+
+    for day in days_range:
+        canvas.append(
+            dict(
+                type="rect",
+                xref="x",
+                yref="paper",
+                x0=day + pd.Timedelta(hours=day_start),
+                x1=day + pd.Timedelta(hours=night_start),
+                y0=0,
+                y1=1,
+                fillcolor=day_color,
+                line=dict(width=0),
+                layer="below"
+            )
+        )
+
+        canvas.append(
+            dict(
+                type="rect",
+                xref="x",
+                yref="paper",
+                x0=day + pd.Timedelta(hours=night_start),
+                x1=day + pd.Timedelta(days=1,hours=day_start),
+                y0=0,
+                y1=1,
+                fillcolor=night_color,
+                line=dict(width=0),
+                layer="below"
+            )
+        )
+    return canvas
+
+def get_alternating_intervals(df, time_column, day_start=6, night_start=18, night_color="rgba(87, 132, 210, .4)", day_color="rgba(250, 235, 215, .4)"):
+    df_copy = df.copy()
+    df_copy[time_column] = to_standardized_timezone(df_copy[time_column],time_zone="America/Detroit")
+    df_copy[time_column] = df_copy[time_column]
+    time_series = df_copy[time_column]
+    start_time = time_series.min().floor('D')
+    end_time = time_series.max().ceil("D")
+
+    days_range = pd.date_range(start_time, end_time, freq="D")
+
+    intervals =[]
+    for day in days_range:
+        intervals.append({
+            "x0": day + pd.Timedelta(hours=day_start),
+            "x1": day + pd.Timedelta(hours=night_start),
+            "fillcolor": day_color
+        })
+
+        intervals.append({
+            "x0": day + pd.Timedelta(hours=night_start),
+            "x1": day + pd.Timedelta(days=1,hours=day_start),
+            "fillcolor": night_color
+        })
+    return intervals
+
+
+
+    
+```
+
+
+```{python}
+
+#| label: "Inital-Read"
+#| echo: false
+#| warning: false
+#| message: false
+
+presence_df = pd.read_csv(os.path.join(PathKeeper.data_log_path,"Data_Presence_Log.csv"),engine="pyarrow")
+
+hr_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"hr_collapsed.csv"), parse_dates=["TimestampISO"], index_col="index_1", dtype={
+  "ID": "string",
+  "submission_date": "string",
+  "file_type": "string",
+  "filename": "string",
+  "HR": "float64",
+  "Timestamp":  "float64",
+  "filename": "string",
+  "TimestampISO": "string",
+ }
+)
+
+accel_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"accel_collapsed.csv"), index_col=["index_1"],engine="pyarrow", dtype={
+    "ID":"string",
+    "submission_date": "string",
+    "file_type":"string",
+    "x": "float64",
+    "y": "float64",
+    "z": "float64",
+    "TimestampUnix": "float64"
+}, parse_dates=["Time", "TimestampISO"])
+
+sleep_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"sleep_collapsed.csv"), parse_dates=["StartISO","EndISO"], index_col=["index_1"])
+
+gait_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"gait_collapsed.csv"), parse_dates=["TimestampISO"],index_col=["index_1"])
+
+double_support_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"double_support_collapsed.csv"), parse_dates=["TimestampISO"],index_col=["index_1"])
+
+asymmetry_df =pd.read_csv(os.path.join(PathKeeper.merged_data_path,"asymmetry_collapsed.csv"),parse_dates=["TimestampISO"], index_col=["index_1"])
+
+fatigue_survey_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path, "fatigue_survey_collapsed.csv"), parse_dates=["Timestamp"],index_col=["index_1"]
+)
+
+cognitive_survey_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path, "cog_collapsed.csv"), parse_dates=["Timestamp"], index_col=["index_1"]
+)
+
+sleep_survey_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path, "sleep_survey_collapsed.csv"), parse_dates=["Timestamp"], index_col=["index_1"]
+)
+
+hr_df = hr_df[hr_df["ID"] == RID].copy()
+sleep_df = sleep_df[sleep_df["ID"] == RID].copy()
+accel_df = accel_df[accel_df["ID"] == RID].copy()
+gait_df = gait_df[gait_df["ID"] == RID].copy()
+double_support_df = double_support_df[double_support_df["ID"] == RID].copy()
+asymmetry_df = asymmetry_df[asymmetry_df["ID"] == RID].copy()
+sleep_survey_df = sleep_survey_df[sleep_survey_df["ID"] == RID].copy()
+cognitive_survey_df = cognitive_survey_df[cognitive_survey_df["ID"] == RID].copy()
+fatigue_survey_df = fatigue_survey_df[fatigue_survey_df["ID"] == RID].copy()
+
+all_surveys_df = sleep_survey_df.drop("Question4", axis=1).merge(cognitive_survey_df, how="outer")
+
+all_surveys_df = all_surveys_df.merge(fatigue_survey_df.drop("Question4", axis=1), how="outer")
+
+all_surveys_df["Sleep03"] = all_surveys_df["Sleep03"].str.strip().replace("Sleep03: No new symptoms","Sleep03: 0 = No new symptoms")
+
+if "all_surveys_df" in locals() and len(all_surveys_df) >0:
+    all_surveys_df[["survey_date", "survey_type"]] = all_surveys_df["Survey"].str.rsplit("_", n=1, expand=True)
+
+cols = ['Sleep01', 'Sleep02', 'Sleep03', 'Cognitive01','Cognitive02', "Pain",'Depression', 'Physical_Fatigue', 'Brain_Fatigue', 'Sleepiness']
+
+
+for c in cols:
+    col_as_series = all_surveys_df[c].fillna("").astype(str)
+    non_missing_index = col_as_series.str.contains(":")
+    non_missing_series = col_as_series.str.split(":", n=1, expand=True)
+    non_missing_df = non_missing_series.reindex(columns=[0,1])
+    non_missing_df = non_missing_df.apply(lambda col: col.str.strip())
+
+    all_surveys_df[f"{c}_question"] = np.where(
+        non_missing_index,
+        non_missing_df[0],
+        f"{c}_question"
+    )  
+
+    all_surveys_df[f"{c}_value"] = np.where(
+        non_missing_index,
+        non_missing_df[1],
+        np.nan
+    )
+    
+    all_surveys_df[f"{c}_value"] = ( all_surveys_df[f"{c}_value"].astype(str).str.extract(r"(\d+)").astype("Int64"))
+
+all_surveys_df = all_surveys_df.drop(['Sleep01', 'Sleep02', 'Sleep03', 'Cognitive01','Cognitive02','Pain','Depression', 'Physical_Fatigue', 'Brain_Fatigue', 'Sleepiness'], axis=1)
+
+all_surveys_df["Sleep03_value"] = all_surveys_df["Sleep03_value"].fillna(1).astype("str")
+all_surveys_df["Sleep03_value"] = all_surveys_df["Sleep03_value"].replace({"1":"New Symptoms", "0":"No New Symptoms"})
+
+cols_to_drop = [col for col in all_surveys_df.columns if "_question" in col]
+
+all_surveys_df = all_surveys_df.drop(columns=cols_to_drop)
+all_surveys_df.columns = all_surveys_df.columns.str.replace("_value","")
+
+if "all_surveys_df" in locals() and len(all_surveys_df) >0:
+    cognitive_survey_df = all_surveys_df[all_surveys_df["survey_type"] == "Cognitive"].dropna(axis=1, how="all").drop(columns=["survey_type"])
+
+    fatigue_survey_df = all_surveys_df[all_surveys_df["survey_type"] == "Fatigue"].dropna(axis=1, how="all").drop(columns=["survey_type"])
+
+    sleep_survey_df  = all_surveys_df[all_surveys_df["survey_type"] == "Sleep"].dropna(axis=1, how="all").drop(columns=["survey_type"])
+
+has_hr ="hr_df" in locals() and len(hr_df) > 0
+
+has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
+
+accel_sleep ="acell_df" in locals() and len(acell_df) > 0
+
+has_gait ="gait_df" in locals() and len(gait_df) > 0
+
+has_double_support ="double_support_df" in locals() and len(double_support_df) > 0
+
+has_asymmetry= "asymmetry_df" in locals() and len(asymmetry_df) > 0
+
+has_cognitive_survey= "cognitive_survey_df" in locals() and len(cognitive_survey_df) > 0
+has_fatigue_survey= "fatigue_survey_df" in locals() and len(fatigue_survey_df) > 0
+has_sleep_survey= "sleep_survey_df" in locals() and len(sleep_survey_df) > 0
+
+overall_summary = {}
+
+overall_summary["ID"] =  RID;
+
+del non_missing_df, non_missing_index, non_missing_series, col_as_series, cols, cols_to_drop, c
+
+#############################
+#label: "Time-Conversions"
+#eval: True
+#echo: false
+#warning: false
+#message: false
+
+#Sleep 
+
+sleep_df["StartISO"] = pd.to_datetime(sleep_df["StartISO"], errors="coerce",utc=True).dt.tz_convert(
+    "America/Detroit"
+)
+
+sleep_df["EndISO"] = pd.to_datetime(sleep_df["EndISO"], errors="coerce",utc=True).dt.tz_convert(
+    "America/Detroit"
+)
+
+sleep_df["StartISO"] = (
+    sleep_df["StartISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(sleep_df["Start"], unit="s"))
+)
+
+sleep_df["EndISO"] = (
+    sleep_df["EndISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(sleep_df["End"], utc=True, unit="s"))
+)
+
+sleep_df["StartISO"] = pd.to_datetime(
+    sleep_df["StartISO"].fillna(sleep_df["Start"]), utc=True, unit="s",errors="coerce").dt.tz_convert("America/Detroit")
+sleep_df["EndISO"] = pd.to_datetime(
+    sleep_df["EndISO"].fillna(sleep_df["End"]), utc=True, unit="s",errors="coerce").dt.tz_convert("America/Detroit")
+
+
+
+sleep_df = sleep_df.sort_values(by="StartISO")
+
+sleep_df["gap_seconds"]  = (
+    sleep_df.groupby("ID")["EndISO"].shift().rsub(sleep_df["StartISO"]).dt.total_seconds()
+    )
+sleep_df["gap_hours"] = (sleep_df["gap_seconds"]/3600) 
+
+sleep_df["Session"] = sleep_df["gap_hours"].isna() | (sleep_df["gap_hours"] >=2)
+
+sleep_df["session_id"] = sleep_df["Session"].cumsum()
+
+sleep_df = (
+    sleep_df.groupby(["session_id",'ID']).agg(
+        ID = ("ID", "first"),
+        submission_date = ('submission_date', "first"), 
+        file_type = ('file_type',"first"),
+        filename=('filename', 'first'),
+        StartISO =('StartISO', "min"),
+        EndISO = ('EndISO', "max"),
+        Start = ('Start', "min"),
+        End = ('End', "max")
+
+    )
+    .reset_index(drop=True)
+)
+
+sleep_df["Duration"] = sleep_df["EndISO"] - sleep_df["StartISO"]
+sleep_df["Duration_in_Minutes"] = sleep_df["Duration"].dt.total_seconds()/60
+
+sleep_df["hour"] = sleep_df["EndISO"].dt.hour
+
+sleep_df["Before_or_After_noon"] = np.where(sleep_df["EndISO"].dt.hour < 12,"Morning","Afternoon")
+
+sleep_df["Night_of_Sleep"] = np.where(
+    sleep_df["Before_or_After_noon"] == "Morning",
+    (sleep_df["EndISO"] - pd.Timedelta(days=1)).dt.date,
+    sleep_df["EndISO"].dt.date,
+)
+
+sleep_df["KeepOrDrop"] = np.where(
+    sleep_df["Duration_in_Minutes"] <= (24*60), 1,0#24 hours of 60 minutes
+)
+
+#sleep_df = sleep_df.dropna(subset=["Duration_in_Minutes"])
+
+sleep_df["Night_of_Sleep"] = pd.to_datetime(
+    sleep_df["Night_of_Sleep"], utc=True,
+    errors="coerce").dt.tz_convert("America/Detroit").dt.date
+
+
+sleep_df["EndISO"] = (
+    sleep_df["EndISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(sleep_df["End"], unit="ns", utc=True))
+)
+
+# sleep_df2 = merge_time_intervals(sleep_df, ["StartISO"], ["EndISO"], time_zone="America/Detroit")
+
+sleep_df=sleep_df.drop(["Before_or_After_noon","Duration"], axis=1)
+
+has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
+
+# Accel
+
+accel_df["TimestampISO"] = pd.to_datetime(accel_df["TimestampISO"], utc=True).dt.tz_convert(
+    "America/Detroit"
+)
+
+accel_df["TimestampISO"] = (
+    accel_df["TimestampISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(accel_df["Time"], unit="s", utc=True))
+)
+
+
+#Heart Rate
+
+hr_df["TimestampISO"] = pd.to_datetime(hr_df["TimestampISO"],errors="coerce", utc=True)
+
+
+hr_df["TimestampISO"] = (
+    hr_df["TimestampISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(hr_df["Timestamp"], unit="s", utc=True))
+)
+
+hr_df["TimestampISO"] = (
+    pd.to_datetime(hr_df["TimestampISO"], utc=True, errors="coerce")
+    .dt.tz_convert("America/Detroit")
+    
+    .infer_objects()
+)   
+
+# Gait
+gait_df["TimestampISO"] = pd.to_datetime(gait_df["TimestampISO"], utc=True)
+
+gait_df["TimestampISO"] = (
+    gait_df["TimestampISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(gait_df["Timestamp"], unit="s", utc=True).dt.tz_convert("America/Detroit"))
+)
+# Double Support
+double_support_df["TimestampISO"] = pd.to_datetime(double_support_df["TimestampISO"], utc=True, format="ISO8601")
+
+double_support_df["TimestampISO"] = (
+    double_support_df["TimestampISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(double_support_df["Timestamp"], unit="s", utc=True).dt.tz_convert("America/Detroit"))
+)
+# Asymmetry
+
+asymmetry_df["TimestampISO"] = pd.to_datetime(asymmetry_df["TimestampISO"], utc=True, format="ISO8601")
+
+asymmetry_df["TimestampISO"] = (
+    asymmetry_df["TimestampISO"]
+    .infer_objects()
+    .fillna(pd.to_datetime(asymmetry_df["Timestamp"], unit="s", utc=True).dt.tz_convert("America/Detroit"))
+)
+# Cognitive survey
+
+cognitive_survey_df["Timestamp"] = pd.to_datetime(cognitive_survey_df["Timestamp"],errors="coerce", utc=True,format="ISO8601").dt.tz_convert(
+    "America/Detroit"
+)
+
+# Fatigue survey
+
+fatigue_survey_df["Timestamp"] = pd.to_datetime(fatigue_survey_df["Timestamp"],errors="coerce", utc=True, format="ISO8601").dt.tz_convert(
+    "America/Detroit"
+)
+
+# Sleep survey
+
+sleep_survey_df["Timestamp"] = pd.to_datetime(sleep_survey_df["Timestamp"],errors="coerce", utc=True, format="ISO8601").dt.tz_convert(
+    "America/Detroit"
+)
+
+
+
+############################
+#label: Sort dataframes by Time
+#echo: false
+#warning: false
+#message: false
+
+hr_df=hr_df.sort_values(by="TimestampISO").copy()
+sleep_df = sleep_df.sort_values(by="StartISO").copy()
+accel_df = accel_df.sort_values(by="TimestampISO").copy()
+gait_df = gait_df.sort_values(by="TimestampISO").copy()
+double_support_df = double_support_df.sort_values("TimestampISO").copy()
+asymmetry_df = asymmetry_df.sort_values("TimestampISO").copy()
+cognitive_survey_df = cognitive_survey_df.sort_values("Timestamp").copy()
+fatigue_survey_df = fatigue_survey_df.sort_values("Timestamp").copy()
+sleep_survey_df = sleep_survey_df.sort_values("Timestamp").copy()
+
+###########################
+#label: Remove First Week of Data
+#echo: false
+#warning: false
+#message: false
+
+hr_df["TimestampISO"] = to_standardized_timezone(hr_df["TimestampISO"], "America/Detroit")
+sleep_df["StartISO"]  = to_standardized_timezone(sleep_df["StartISO"], "America/Detroit")
+sleep_df["EndISO"]    = to_standardized_timezone(sleep_df["EndISO"], "America/Detroit")
+accel_df["TimestampISO"] = to_standardized_timezone(accel_df["TimestampISO"], "America/Detroit")
+gait_df["TimestampISO"] = to_standardized_timezone(gait_df["TimestampISO"], "America/Detroit")
+double_support_df["TimestampISO"] = to_standardized_timezone(double_support_df["TimestampISO"], "America/Detroit")
+asymmetry_df["TimestampISO"] = to_standardized_timezone(asymmetry_df["TimestampISO"], "America/Detroit")
+cognitive_survey_df["Timestamp"] = to_standardized_timezone(cognitive_survey_df["Timestamp"], "America/Detroit")
+fatigue_survey_df["Timestamp"]   = to_standardized_timezone(fatigue_survey_df["Timestamp"], "America/Detroit")
+sleep_survey_df["Timestamp"]     = to_standardized_timezone(sleep_survey_df["Timestamp"], "America/Detroit")
+
+
+first_timestamps = [
+    hr_df["TimestampISO"].min(),
+    sleep_df.loc[sleep_df["KeepOrDrop"] == 1, "StartISO"].min(),
+    accel_df["TimestampISO"].min(),
+    #gait_df["TimestampISO"].min(),
+    double_support_df["TimestampISO"].min(),
+    asymmetry_df["TimestampISO"].min(),
+    cognitive_survey_df["Timestamp"].min(),
+    fatigue_survey_df["Timestamp"].min(),
+    sleep_survey_df["Timestamp"].min()
+]
+
+first_timestamps = [
+    #Double confirm conversion to desired Timezone ("Detroit")
+    timestamp.tz_convert("America/Detroit") if timestamp.tzinfo is not None else timestamp.tz_localize("America/Detroit")
+    for timestamp in first_timestamps
+    if pd.notna(timestamp)
+]
+
+
+last_timestamps = [
+    hr_df["TimestampISO"].max(),
+    sleep_df.loc[sleep_df["KeepOrDrop"] == 1,"EndISO"].max(),
+    accel_df["TimestampISO"].max(),
+    #gait_df["TimestampISO"].max(),
+    double_support_df["TimestampISO"].max(),
+    asymmetry_df["TimestampISO"].max(),
+    cognitive_survey_df["Timestamp"].max(),
+    fatigue_survey_df["Timestamp"].max(),
+    sleep_survey_df["Timestamp"].max()
+]
+
+last_timestamps = [
+    #Double confirm conversion to desired Timezone ("Detroit")
+    timestamp.tz_convert("America/Detroit") if timestamp.tzinfo is not None else timestamp.tz_localize("America/Detroit")
+    for timestamp in last_timestamps
+    if pd.notna(timestamp)
+]
+
+start = max(first_timestamps) + pd.Timedelta(days=7) # Determine 7 days after the earliest recorded piece of data present.
+#end   = max(last_timestamps) - pd.Timedelta(days=1) # Determine 1 day before the last recorded piece of data present
+end   = min(last_timestamps) - pd.Timedelta(days=1) # Determine 1 day before the last recorded piece of data present
+
+
+# HR 
+hr_df = hr_df.loc[
+    (hr_df["TimestampISO"] >= start) & (hr_df["TimestampISO"] <= end) 
+].copy()
+
+# Sleep 
+sleep_df = sleep_df.loc[
+    (sleep_df["StartISO"] >= start) & (sleep_df["EndISO"] <= end) 
+].copy()
+
+# Gait 
+gait_df = gait_df.loc[
+    (gait_df["TimestampISO"] >= start) & (gait_df["TimestampISO"] <= end) 
+].copy()
+
+#Accel 
+accel_df = accel_df.loc[ (accel_df["TimestampISO"] >= start) & (accel_df["TimestampISO"] <= end)].copy()
+
+# Double Support 
+double_support_df = double_support_df.loc[
+    (double_support_df["TimestampISO"] >= start) & (double_support_df["TimestampISO"] <= end) 
+].copy()
+
+
+
+# Asymmetry 
+asymmetry_df = asymmetry_df.loc[
+    (asymmetry_df["TimestampISO"] >= start) & (asymmetry_df["TimestampISO"] <= end) 
+].copy()
+
+# Cognitive Survey 
+cognitive_survey_df = cognitive_survey_df.loc[
+    (cognitive_survey_df["Timestamp"] >= start) & (cognitive_survey_df["Timestamp"] <= end) 
+].copy()
+
+# Fatigue Survey 
+fatigue_survey_df = fatigue_survey_df.loc[
+    (fatigue_survey_df["Timestamp"] >= start) & (fatigue_survey_df["Timestamp"] <= end) 
+].copy()
+
+# Sleep Survey 
+sleep_survey_df = sleep_survey_df.loc[
+    (sleep_survey_df["Timestamp"] >= start) & (sleep_survey_df["Timestamp"] <= end) 
+].copy()
+
+##
+
+has_hr ="hr_df" in locals() and len(hr_df) > 0
+
+has_sleep ="sleep_df" in locals() and len(sleep_df) > 0
+
+has_accel = "accel_df" in locals() and len(accel_df)>0
+
+has_gait ="gait_df" in locals() and len(gait_df) > 0
+
+has_double_support ="double_support_df" in locals() and len(double_support_df) > 0
+
+has_asymmetry= "asymmetry_df" in locals() and len(asymmetry_df) > 0
+
+has_cognitive_survey= "cognitive_survey_df" in locals() and len(cognitive_survey_df) > 0
+has_fatigue_survey= "fatigue_survey_df" in locals() and len(fatigue_survey_df) > 0
+has_sleep_survey= "sleep_survey_df" in locals() and len(sleep_survey_df) > 0
+
+###################
+#label: HR_Plot
+#eval: True
+#echo: false
+#warning: false
+#message: false
+
+if has_hr:
+    hr_sorted_df = hr_df.sort_values(by="TimestampISO")
+    hr_sorted_df["Time_Averaged_Over"] = hr_sorted_df.sort_values(["ID","TimestampISO"]).groupby("ID")["TimestampISO"].diff()
+    hr_sorted_df["Time_Averaged_Over_in_Minutes"] =  hr_sorted_df["Time_Averaged_Over"].dt.total_seconds()/60
+
+    hr_fig = go.Figure()
+
+    hr_fig.add_trace(
+    go.Scatter(
+        x=hr_sorted_df["TimestampISO"],
+        y=hr_sorted_df["HR"],
+        mode="lines+markers",
+        marker=dict(
+        color="red"
+        ),
+        line=dict(
+        color="green",
+        width=1
+        )
+    )
+    )
+
+    hr_fig.update_layout(
+        shapes=add_alternating_backgrounds(hr_sorted_df,"TimestampISO", day_start=6, night_start=18),
+        template="plotly_white"
+    )
+
+    hr_fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1 day", step="day", stepmode="backward"),
+                dict(count=3, label="3 days", step="day", stepmode="backward"),
+                dict(count=5, label="5 day", step="day", stepmode="backward"),
+                dict(count=7, label="1 week", step="day", stepmode="backward"),
+                dict(step="all")
+            ])
+        )
+    )
+else:
+    display(Markdown(f"_**No Heart Rate Data Exists**_"))
+
+################
+# #label: Sleep_Duration_Plot
+# #eval: False
+# #echo: false
+# #warning: false
+# #message: false
+
+# if has_sleep:
+#     sleep_temp_df = sleep_df[sleep_df["KeepOrDrop"] == 1].sort_values(by="Night_of_Sleep")
+#     sleep_temp_df['Sleep Session'] = sleep_temp_df.groupby('Night_of_Sleep').cumcount()
+#     sleep_temp_df = sleep_temp_df.dropna(subset=["Sleep Session"])
+#     sleep_temp_df["Sleep Session"] = "Sleep Session: " + (sleep_temp_df["Sleep Session"]+1).astype(str) 
+
+#     sleep_fig = go.Figure() 
+#     sleep_fig.add_hline(y=(60*8), line_dash="dash", line_color="cyan", layer='below') # Add in dashed line for what would be hours 
+
+#     for session in sleep_temp_df["Sleep Session"].dropna().unique():
+#         filtered_df = sleep_temp_df[sleep_temp_df["Sleep Session"] == session]
+
+#         sleep_fig.add_trace(
+#             go.Bar(
+#                 x=filtered_df["Night_of_Sleep"],
+#                 y=filtered_df["Duration_in_Minutes"],
+#                 name=session     # ← now a proper string label
+#             )
+#         )
+#     sleep_fig.update_layout(
+#         xaxis_title = "Night of Sleep",
+#         yaxis_title = "Duration of Sleep (in Minutes)",
+#         barmode="stack",
+#         showlegend=False
+#     )
+
+#     sleep_fig.update_xaxes(
+#         rangeslider_visible=True,
+#         rangeselector=dict(
+#             buttons=list([
+#                 dict(count=1, label="1 day", step="day", stepmode="backward"),
+#                 dict(count=3, label="3 days", step="day", stepmode="backward"),
+#                 dict(count=5, label="5 day", step="day", stepmode="backward"),
+#                 dict(count=7, label="1 week", step="day", stepmode="backward"),
+#                 dict(step="all")
+#             ])
+#         )
+#     )
+    
+#    #sleep_fig
+# else:
+#     display(Markdown(f"_**No Sleep Data Exists**_"))
+
+
+###############
+# label: Hypnogram-Like-Plot
+# warning: false
+# message: false
+# eval: True
+
+if has_sleep:
+    night = pd.to_datetime(sleep_df["Night_of_Sleep"], errors="coerce", unit="ns").dt.tz_localize("America/Detroit")
+
+    night = night.dt.normalize()
+
+    earliest_day = night.min()
+    latest_day = night.max()
+
+    latest_time = max(sleep_df["EndISO"])
+
+    earliest_time = min(sleep_df["StartISO"])-pd.Timedelta(2, unit="h")
+
+    sleep_days_df = pd.DataFrame({
+        "GlobalDay": pd.date_range(
+            start=earliest_day,
+            end=latest_day,
+            freq="1D"
+        )
+    }
+    )
+
+    time_df = pd.DataFrame(
+        {
+            "GlobalTime": pd.date_range(start=earliest_time, end=latest_time, freq="30s"),
+            "Asleep": "0",
+        }
+    )
+
+        # Build interval index (make sure StartISO/EndISO are tz-aware in America/Detroit too)
+    session_interval = pd.IntervalIndex.from_arrays(
+        sleep_df["StartISO"], sleep_df["EndISO"], closed="both"
+    )
+
+    has_sleep_interval_including_drops = session_interval.get_indexer_for(time_df["GlobalTime"])
+
+    group = np.where(has_sleep_interval_including_drops == -1, np.nan, sleep_df["KeepOrDrop"].to_numpy()[has_sleep_interval_including_drops])
+
+    time_df["Hypno"] = np.select(
+        [has_sleep_interval_including_drops == -1, # Is not inside *ANY* interval
+        group == 1], 
+        [
+            "WAKE",
+            "SLEEP"
+        ],
+        default=None
+
+    )
+
+    time_df = time_df.sort_values("GlobalTime").reset_index(drop=True)
+    time_df["SleepDummy"] = time_df["GlobalTime"].where(time_df["Hypno"]=="SLEEP")
+    time_df["AwakeDummy"]=time_df["GlobalTime"].where(time_df["Hypno"]=="WAKE")
+    time_df["LastSleep"] = time_df["SleepDummy"].ffill()
+    time_df["LastAwake"] = time_df["AwakeDummy"].ffill()
+    time_df["TimeSinceAsleep"] = time_df["GlobalTime"] - time_df["LastSleep"]
+    time_df["TimeSinceAwake"] = time_df["GlobalTime"] - time_df["LastAwake"]
+    time_df["AwakeTooLong"] = time_df["TimeSinceAsleep"] > pd.Timedelta(hours=24)
+    time_df["SleepTooLong"] = time_df["TimeSinceAwake"] > pd.Timedelta(hours=24)
+    time_df.loc[time_df["AwakeTooLong"], "Hypno"] = pd.NA
+    time_df.loc[time_df["SleepTooLong"], "Hypno"] = pd.NA
+
+    time_df = time_df.drop(columns=["SleepDummy","AwakeDummy","LastSleep","LastAwake","TimeSinceAsleep","TimeSinceAwake","AwakeTooLong","SleepTooLong"])
+
+
+    hypno_order =["SLEEP", "WAKE", "UNS"]
+    hypno_color_map = {
+        "SLEEP": "red",
+        "WAKE": "black"#,
+        #"UNS": "black"
+    }
+
+    hypno_number_map = {
+        "SLEEP": 0,
+        "WAKE": 1,
+    }
+
+    time_sorted_df = time_df.sort_values(by="GlobalTime")
+    hypno_colors = time_sorted_df["Hypno"].map(hypno_color_map).fillna("black")
+    time_sorted_df["DummyHypno"] = time_sorted_df["Hypno"].map(hypno_number_map)
+
+
+    time_fig = go.Figure()
+
+    time_fig.add_trace(
+    go.Scatter(
+        x=time_sorted_df["GlobalTime"],
+        y=time_sorted_df["Hypno"],
+        mode="lines+markers",
+        connectgaps=False,
+        marker=dict(
+        color=hypno_colors
+        ),
+        line=dict(
+        color="black",
+        width=1
+        )
+    )
+    )
+
+    time_fig.update_layout(
+        yaxis=dict(categoryorder="array", categoryarray=hypno_order),
+        shapes=add_alternating_backgrounds(time_sorted_df,"GlobalTime", day_start=6, night_start=18),
+        template="plotly_white"
+    )
+    time_fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1 day", step="day", stepmode="backward"),
+                dict(count=3, label="3 days", step="day", stepmode="backward"),
+                dict(count=5, label="5 day", step="day", stepmode="backward"),
+                dict(count=7, label="1 week", step="day", stepmode="backward"),
+                dict(step="all")
+            ])
+        )
+    )
+
+    #time_fig
+
+    # hypno=yasa.Hypnogram(time_sorted_df["Hypno"], n_stages=2, freq="30s")
+
+    # # hypno.plot_hypnogram()
+    # time_fig_for_group = go.Figure()
+
+    # time_fig_for_group.add_trace(
+    # go.Scatter(
+    #     x=time_sorted_df["GlobalTime"],
+    #     y=time_sorted_df["DummyHypno"],
+    #     mode="lines+markers",
+    #     marker=dict(
+    #     color=hypno_colors
+    #     ),
+    #     line=dict(
+    #     color="black",
+    #     width=1
+    #     )
+    # )
+    # )
+
+    # time_fig_for_group.update_layout(
+    #     yaxis=dict(categoryorder="array", categoryarray=hypno_order, tickmode="array", tickvals=[0,1,2], ticktext=hypno_order),
+    #     template="plotly_white"
+    # )
+    # time_fig_for_group.update_xaxes(
+    #     rangeslider_visible=True,
+    #     rangeselector=dict(
+    #         buttons=list([
+    #             dict(count=1, label="1 day", step="day", stepmode="backward"),
+    #             dict(count=3, label="3 days", step="day", stepmode="backward"),
+    #             dict(count=5, label="5 day", step="day", stepmode="backward"),
+    #             dict(count=7, label="1 week", step="day", stepmode="backward"),
+    #             dict(step="all")
+    #         ])
+    #     )
+    # )
+
+    # del(group)
+else:
+    display(Markdown(f"_**No Sleep Data Exists**_"))
+
+
+######################
+# label: Accelerometer-Plot
+# warning: false
+# message: false
+# eval: False
+
+# if has_accel:
+#     accel_long_df = accel_df.melt(id_vars=["ID","TimestampISO"], value_vars=["x","y","z" ], var_name='Direction', value_name='Value')
+#     accel_long_df["TimestampISO"] = (
+#     pd.to_datetime(accel_long_df["TimestampISO"], utc=True, errors="coerce")
+#     .dt.tz_convert("America/Detroit")
+#     .infer_objects()
+# )   
+
+#     accel_long_df = accel_long_df.sort_values(by="TimestampISO")
+
+#     accel_fig = px.line(
+#         accel_long_df,
+#         x="TimestampISO",
+#         y="Value",
+#         color="Direction",
+#         markers=True
+#     )
+
+
+# else:
+#     #accel_long_ = gait_df.sort_values(by="TimestampISO")
+#     #gait_sorted_df["TimestampISO"] = pd.to_datetime(gait_sorted_df["TimestampISO"], errors="coerce").dt.tz_convert("America/Detroit")
+#     display(Markdown(f"_**No Acceleration Data Exists**_"))
+#######################
+# label: Gait-Plot
+# eval: true
+# echo: false
+# warning: false
+# message: false
+
+
+if has_gait:
+    gait_df["TimestampISO"] = (
+    pd.to_datetime(gait_df["TimestampISO"], utc=True, errors="coerce", unit="s")
+    .dt.tz_convert("America/Detroit")
+    .infer_objects()
+)   
+
+    gait_sorted_df = gait_df.sort_values(by="TimestampISO")
+
+    gait_sorted_df["Balance"] = gait_sorted_df["Balance"]*100 
+    gait_sorted_df["TimestampISO"] =pd.to_datetime(gait_sorted_df["TimestampISO"], utc=True, errors="coerce").dt.as_unit("ns").dt.tz_convert("America/Detroit")
+
+    gait_fig = go.Figure()
+
+    gait_fig.add_trace(
+    go.Scatter(
+        x=gait_sorted_df["TimestampISO"],
+        y=gait_sorted_df["Balance"],
+        mode="lines+markers",
+        marker=dict(
+        color="orange"
+        ),
+        line=dict(
+        color="green",
+        width=1
+        )
+    )
+    )
+
+    gait_fig.update_layout(
+        shapes=add_alternating_backgrounds(gait_sorted_df,"TimestampISO", day_start=6, night_start=18),
+        template="plotly_white"
+    )
+    gait_fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1 day", step="day", stepmode="backward"),
+                dict(count=3, label="3 days", step="day", stepmode="backward"),
+                dict(count=5, label="5 day", step="day", stepmode="backward"),
+                dict(count=7, label="1 week", step="day", stepmode="backward"),
+                dict(step="all")
+            ])
+        )
+    )
+    gait_fig.add_hline(y=50, line_dash="dash", line_color="green", annotation_text="Balanced Gait")
+
+else:
+    gait_sorted_df = gait_df.sort_values(by="TimestampISO")
+    gait_sorted_df["TimestampISO"] = pd.to_datetime(gait_sorted_df["TimestampISO"], errors="coerce").dt.as_unit("ns").tz_convert("America/Detroit")
+    display(Markdown(f"_**No Gait Data Exists**_"))
+
+########################
+# eval: True
+# echo: false
+# warning: false
+# message: false
+
+if has_double_support:
+    double_support_sorted_df = double_support_df.sort_values(by="TimestampISO")
+    IsoTime = pd.to_datetime(double_support_sorted_df["TimestampISO"], errors="coerce", utc=True, unit="ns")
+
+    double_support_sorted_df["TimestampISO"] = IsoTime.dt.tz_convert("America/Detroit")
+    double_support_sorted_df["Percentage"] = double_support_sorted_df["Percentage"]*100 
+
+    double_support_fig = go.Figure()
+
+    double_support_fig.add_trace(
+    go.Scatter(
+        x=double_support_sorted_df["TimestampISO"],
+        y=double_support_sorted_df["Percentage"],
+        mode="lines+markers",
+        marker=dict(
+        color="purple"
+        ),
+        line=dict(
+        color="green",
+        width=1
+        )
+    )
+    )
+
+    double_support_fig.update_layout(
+        shapes=add_alternating_backgrounds(double_support_sorted_df,"TimestampISO", day_start=6, night_start=18),
+        template="plotly_white"
+    )
+
+    double_support_fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1 day", step="day", stepmode="backward"),
+                dict(count=3, label="3 days", step="day", stepmode="backward"),
+                dict(count=5, label="5 day", step="day", stepmode="backward"),
+                dict(count=7, label="1 week", step="day", stepmode="backward"),
+                dict(step="all")
+            ])
+        )
+    )
+
+
+else:
+    double_support_sorted_df = double_support_df.sort_values(by="TimestampISO")
+    double_support_sorted_df["TimestampISO"] = pd.to_datetime(double_support_sorted_df["TimestampISO"], errors="coerce", unit="ns").dt.tz_convert("America/Detroit")
+    display(Markdown(f"_**No Double Support Data Exists**_"))
+
+
+######################
+# label: Cognitive-Survey-Plot
+# warning: false
+# message: false
+# eval: True
+if has_cognitive_survey:
+    cognitive_survey_long_df = cognitive_survey_df.melt(id_vars=["ID","survey_date", "Timestamp"], value_vars=["Pain"], var_name='Questions', value_name='Value')
+
+    cognitive_survey_long_df["survey_date"] = (
+        pd.to_datetime(cognitive_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
+
+####
+
+
+    cognitive_survey_long_df = cognitive_survey_long_df.sort_values(["survey_date", "Timestamp"])
+    
+    cog_fig = px.line(
+        cognitive_survey_long_df,
+        x="Timestamp",
+        y="Value",
+        #color="darkorchid",
+        facet_row="Questions",
+        markers=True
+    )
+    cog_fig.update_traces(
+    line=dict(color="darkorchid"),
+    marker=dict(color="darkorchid")
+)
+    cog_fig.for_each_annotation(
+    lambda a: a.update(text=a.text.split("=")[-1])
+    
+    )
+
+    cog_fig.update_layout(
+        shapes=add_alternating_backgrounds(cognitive_survey_long_df,"Timestamp", day_start=6, night_start=18),
+        template="plotly_white"
+    )
+
+    # 1. Match all x-axes
+    cog_fig.update_xaxes(matches="x")
+
+    # 2. Disable sliders everywhere
+    cog_fig.update_xaxes(rangeslider_visible=False)
+
+    # 3. Enable slider ONLY on the bottom x-axis
+    bottom_xaxis = min(
+        cog_fig.select_xaxes(),
+        key=lambda ax: ax.domain[0]
+    )
+    bottom_xaxis.rangeslider.visible = True
+    cog_fig.update_layout(showlegend=False, template="plotly_white")
+
+
+    #cog_fig.show()
+else:
+    cognitive_survey_long_df = pd.DataFrame(columns=["ID","survey_date","Timestamp","Questions","Value"])
+    cognitive_survey_long_df["survey_date"] = (
+        pd.to_datetime(cognitive_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
+    cognitive_survey_long_df["Timestamp"] = (
+        pd.to_datetime(cognitive_survey_long_df["Timestamp"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
+    display(Markdown(f"_**No Cognitive Survey Data Exists**_"))
+
+########################
+# label: Fatigue-Survey-Plot
+# warning: false
+# message: false
+# eval: True
+
+if has_fatigue_survey:
+    fatigue_survey_long_df = fatigue_survey_df.melt(id_vars=["ID","survey_date", "Timestamp"], value_vars=[ 'Physical_Fatigue', 'Brain_Fatigue', 'Sleepiness'], var_name='Questions', value_name='Value')
+
+    fatigue_survey_long_df["survey_date"] = (
+        pd.to_datetime(fatigue_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
+
+####
+
+
+    fatigue_survey_long_df=fatigue_survey_long_df.sort_values(["survey_date", "Timestamp"])
+    fatigue_fig = px.line(
+        fatigue_survey_long_df,
+        x="Timestamp",
+        y="Value",
+        color="Questions",
+        facet_row="Questions",
+        markers=True,
+    )
+    fatigue_fig.for_each_annotation(
+    lambda a: a.update(text=a.text.split("=")[-1])
+    
+    )
+
+    fatigue_fig.update_layout(
+        shapes=add_alternating_backgrounds(fatigue_survey_long_df,"Timestamp", day_start=6, night_start=18),
+        template="plotly_white"
+    )
+    
+    fatigue_fig.update_xaxes(matches="x")
+
+    # 2. Disable sliders everywhere
+    fatigue_fig.update_xaxes(rangeslider_visible=False)
+
+    # 3. Enable slider ONLY on the bottom x-axis
+    bottom_xaxis = min(
+        fatigue_fig.select_xaxes(),
+        key=lambda ax: ax.domain[0]
+    )
+    fatigue_fig.update_layout(showlegend=False, template="plotly_white")
+
+    bottom_xaxis.rangeslider.visible = True
+
+
+
+else:
+    fatigue_survey_long_df = pd.DataFrame(columns=["ID","survey_date","Timestamp","Questions","Value"])
+    fatigue_survey_long_df["survey_date"] = (
+        pd.to_datetime(fatigue_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
+    fatigue_survey_long_df["Timestamp"] = (
+        pd.to_datetime(fatigue_survey_long_df["Timestamp"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
+    display(Markdown(f"_**No Fatigue Survey Data Exists**_"))
+
+
+######
+# label: Sleep-Survey-Plot
+# eval: True
+# echo: false
+# warning: false
+# message: false
+
+if has_sleep_survey:
+    sleep_survey_df = sleep_survey_df.rename(columns={"Sleep03":"NewSymptoms"})
+    sleep_survey_long_df = sleep_survey_df.melt(id_vars=["ID","survey_date", "Timestamp"], value_vars=['NewSymptoms'], var_name='Questions', value_name='Value')
+
+    sleep_survey_long_df["survey_date"] = (
+        pd.to_datetime(sleep_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
+
+
+####
+    sleep_survey_long_df=sleep_survey_long_df.sort_values(["survey_date", "Timestamp"])
+    sleepy_fig = px.line(
+        sleep_survey_long_df,
+        x="survey_date",
+        y="Value",
+        color="Questions",
+        facet_row="Questions",
+        markers=True,
+    )
+    sleepy_fig.for_each_annotation(
+    lambda a: a.update(text=a.text.split("=")[-1])
+    
+    )
+    sleepy_fig.update_layout(
+        shapes=add_alternating_backgrounds(sleep_survey_long_df,"Timestamp", day_start=6, night_start=18),
+        template="plotly_white"
+    )
+    sleepy_fig.update_xaxes(matches="x")
+
+    # 2. Disable sliders everywhere
+    sleepy_fig.update_xaxes(rangeslider_visible=False)
+
+    # 3. Enable slider ONLY on the bottom x-axis
+    bottom_xaxis = min(
+        sleepy_fig.select_xaxes(),
+        key=lambda ax: ax.domain[0]
+    )
+    sleepy_fig.update_layout(showlegend=False, template="plotly_white")
+
+    bottom_xaxis.rangeslider.visible = True
+
+
+else:
+    sleep_survey_long_df = pd.DataFrame(columns=["ID","survey_date","Timestamp","Questions","Value"])
+    sleep_survey_long_df["survey_date"] = (
+        pd.to_datetime(sleep_survey_long_df["survey_date"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
+    sleep_survey_long_df["Timestamp"] = (
+        pd.to_datetime(sleep_survey_long_df["Timestamp"], format="%Y-%m-%d_%H%M").dt.tz_localize("America/Detroit")
+    )
+    display(Markdown(f"_**No Sleep Survey Data Exists**_"))
+```
+
+<!-- # Merge HR and Sleep Data
+
+```{python}
+# | label: Generate merged HR and Sleep dataframe
+# | eval: false
+# | echo: false
+# | warning: false
+# | message: false
+
+all_surveys_long_df = (pd.concat(
+    [cognitive_survey_long_df, fatigue_survey_long_df, sleep_survey_long_df],
+    ignore_index=True,
+).sort_values(["survey_date", "Timestamp"]).reset_index(drop=True)
+)
+
+all_surveys_long_df["Timestamp"] =pd.to_datetime(all_surveys_long_df["Timestamp"] , errors="coerce", utc=True, unit="ns")
+all_surveys_long_df["Timestamp"] =all_surveys_long_df["Timestamp"].dt.tz_convert("America/Detroit")
+
+max_timestamps = [
+    hr_df["TimestampISO"].max(),
+    sleep_df["EndISO"].max(),
+    gait_df["TimestampISO"].max(),
+    double_support_df["TimestampISO"].max(),
+    all_surveys_long_df["Timestamp"].max()
+]
+
+max_timestamps = [
+    timestamp.tz_convert("America/Detroit") if timestamp.tzinfo is not None else timestamp.tz_localize("America/Detroit")
+    for timestamp in max_timestamps
+    if pd.notna(timestamp)
+]
+
+min_timestamps = [
+    hr_df["TimestampISO"].min(),
+    sleep_df["StartISO"].min(),
+    gait_df["TimestampISO"].min(),
+    double_support_df["TimestampISO"].min(),
+    all_surveys_long_df["Timestamp"].min()
+]
+
+min_timestamps = [
+    timestamp.tz_convert("America/Detroit") if timestamp.tzinfo is not None else timestamp.tz_localize("America/Detroit")
+    for timestamp in min_timestamps
+    if pd.notna(timestamp)
+]
+
+latest_time = max(max_timestamps)
+
+earliest_time = min(min_timestamps)
+
+latest_time = pd.to_datetime(latest_time).as_unit("ns")
+
+earliest_time = pd.to_datetime(latest_time).as_unit("ns")
+
+
+time_df = pd.DataFrame(
+    {
+        "GlobalTime": pd.date_range(start=earliest_time, end=latest_time, freq="30s"),
+        "Asleep": "0",
+    }
+)
+
+mask = time_df["GlobalTime"].apply(
+    lambda time: ((sleep_df["StartISO"] <= time) & (sleep_df["EndISO"] >= time)).any()
+)
+
+time_df["Asleep"] = mask.astype(int)
+time_df["GlobalTime"] = pd.to_datetime(time_df["GlobalTime"], errors="coerce", utc=True).dt.as_unit("ns")
+hr_df["TimestampISO"] = pd.to_datetime(hr_df["TimestampISO"] , errors="coerce",utc=True).dt.as_unit("ns")
+gait_df["TimestampISO"] = pd.to_datetime(gait_df["TimestampISO"] , errors="coerce",utc=True).dt.as_unit("ns")
+sleep_df["TimestampISO"] = pd.to_datetime(sleep_df["StartISO"] , errors="coerce", utc=True).dt.as_unit("ns")
+double_support_df["TimestampISO"] = pd.to_datetime(double_support_df["TimestampISO"],utc=True, errors="coerce").dt.as_unit("ns")
+all_surveys_long_df["Timestamp"] = pd.to_datetime(all_surveys_long_df["Timestamp"],utc=True, errors="coerce").dt.as_unit("ns")
+# all_surveys_long_df["Timestamp"] = to_standardized_timezone(all_surveys_long_df["Timestamp"],utc=True, "America/Detroit")
+
+time_df["Asleep"] = mask.astype(int)
+time_sorted_df = time_df.sort_values("GlobalTime")
+hr_sorted_df = hr_df.sort_values("TimestampISO")
+gait_sorted_df = gait_df.sort_values("TimestampISO")
+sleep_sorted_df = sleep_df.sort_values("StartISO")
+double_support_sorted_df = double_support_df.sort_values("TimestampISO")
+all_surveys_long_sorted_df = all_surveys_long_df.sort_values(["survey_date", "Timestamp"]).reset_index(drop=True)
+
+time_sorted_df["GlobalTime"] = time_sorted_df["GlobalTime"].dt.round("s", ambiguous="infer")
+hr_sorted_df["TimestampISO"] = hr_sorted_df["TimestampISO"].dt.round("s",ambiguous="infer")
+gait_sorted_df["TimestampISO"] = gait_sorted_df["TimestampISO"].dt.round("s",ambiguous="infer")
+sleep_sorted_df["TimestampISO"] = sleep_sorted_df["TimestampISO"].dt.round("s",ambiguous="infer")
+double_support_df["TimestampISO"] = double_support_df["TimestampISO"].dt.round("s",ambiguous="infer")
+all_surveys_long_sorted_df["Timestamp"] = all_surveys_long_sorted_df["Timestamp"].dt.round("s",ambiguous="infer")
+
+
+merge_df = pd.merge_asof(
+    time_sorted_df,
+    hr_sorted_df,
+    left_on="GlobalTime",
+    right_on="TimestampISO",
+    direction="nearest",
+    tolerance=pd.Timedelta(seconds=15),
+)
+
+new_order = merge_df[["ID", "GlobalTime", "Asleep", "HR"]]
+merge_df2 = pd.merge_asof(
+    new_order,
+    gait_sorted_df[["TimestampISO", "Balance"]],
+    left_on="GlobalTime",
+    right_on="TimestampISO",
+    direction="nearest",
+    tolerance=pd.Timedelta(seconds=15),
+).drop(columns=["TimestampISO"])
+
+merge_df3 = pd.merge_asof(
+    merge_df2,
+    double_support_sorted_df[["TimestampISO", "Percentage"]],
+    left_on="GlobalTime",
+    right_on="TimestampISO",
+    direction="nearest",
+    tolerance=pd.Timedelta(seconds=15),
+)
+
+
+merge_df4 = pd.merge_asof(
+    merge_df3,
+    all_surveys_long_sorted_df.sort_values("Timestamp"),
+    left_on="GlobalTime",
+    right_on="Timestamp",
+    direction="nearest",
+    tolerance=pd.Timedelta(seconds=15),
+)
+
+all_data_df = merge_df4.drop(columns=["ID_y", "Timestamp", "TimestampISO"]).rename(columns={"ID_x":"ID"})
+
+all_data_df["ID"] = all_data_df["ID"].ffill().bfill()
+
+
+```
+
+-->
+
+
+### All Data
+
+```{python}
+
+#| label: "All_Data_Plots"
+#| eval: True
+#| echo: false
+#| warning: false
+#| message: false
+
+num_plots = 7
+default_end = time_df["GlobalTime"].max()
+default_end = default_end.ceil("D")
+default_start = default_end - pd.Timedelta(days=7)
+
+total_fig  = make_subplots(rows=7, cols=1, shared_xaxes=True,subplot_titles=( "Double Support", "Pain", "Physical Fatigue","Brain Fatigue","Sleepiness", "New Symptoms","Sleep Classifications"))
+
+add_fig_traces(total_fig, globals().get("double_support_fig"), start_row=1, end_row=1)
+#add_fig_traces(total_fig, globals().get("gait_fig"), start_row=2, end_row=2)
+# add_fig_traces(total_fig, globals().get("cog_fig"),     start_row=3, end_row=3)
+# add_fig_traces(total_fig, globals().get("fatigue_fig"), start_row=4, end_row=6)
+# add_fig_traces(total_fig, globals().get("sleepy_fig"),  start_row=7, end_row=7)
+# add_fig_traces(total_fig, globals().get("time_fig"), start_row=8, end_row=8, yaxis_range=[0, None])
+add_fig_traces(total_fig, globals().get("cog_fig"),     start_row=2, end_row=2)
+add_fig_traces(total_fig, globals().get("fatigue_fig"), start_row=3, end_row=5)
+add_fig_traces(total_fig, globals().get("sleepy_fig"),  start_row=6, end_row=6)
+add_fig_traces(total_fig, globals().get("time_fig"), start_row=7, end_row=7, yaxis_range=[0, None])
+
+plot_intervals = get_alternating_intervals(
+    df=time_df,
+    time_column="GlobalTime",
+
+)
+
+for row in range(1, num_plots+1):
+    for interval in plot_intervals:
+        total_fig.add_vrect(
+            x0=interval["x0"],
+            x1=interval["x1"],
+            fillcolor=interval["fillcolor"],
+            line_width=0,
+            layer="below",
+            row=row,
+            col=1
+        )
+
+
+
+for xaxis in range(1, num_plots):
+    total_fig.update_xaxes(visible=False, rangeslider_visible=False, row=xaxis, col=1) 
+
+total_fig.update_xaxes(
+    visible=True,
+    rangeslider_visible=True,
+    range=[default_start, default_end],
+    row=7,
+    col=1,
+    rangeselector=dict(
+    buttons=list([
+    dict(count=1, label="1 day", step="day", stepmode="backward"),
+            dict(count=3, label="3 days", step="day", stepmode="backward"),
+            dict(count=5, label="5 days", step="day", stepmode="backward"),
+            dict(count=7, label="1 week", step="day", stepmode="backward"),
+            dict(step="all")
+        ]),
+        yanchor ="top"#,
+        # y=-0.25
+
+    )
+)
+
+total_fig.update_layout(showlegend=False,template="plotly_white", uirevision="constant")
+total_fig.show()
+
+# new_fig = go.Figure()
+#total_fig.write_html("total_plot.html")
+# new_fig.add_trace
+
+```
+
+
+### Notices and Metainfo {.unnumbered .unlisted}
+
+#### Copyright {.unnumbered .unlisted}
+
+<details>
+
+<notice>
+
+Copyright © 2025 The Regents of the University of Michigan
+
+This file is part of Yawnalyzer.
+
+This program is free software: you can redistribute it and/or modify
+
+it under the terms of the GNU General Public License as published by
+
+the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+
+with this program. If not, see <https://www.gnu.org/licenses/>. </notice>
+
+</details>
+
+#### Session Info {.unnumbered .unlisted}
+
+```{python}
+
+#| label: Session_Information
+#| echo: false
+#| warning: false
+#| message: false
+
+session_info.show()
+
+```
