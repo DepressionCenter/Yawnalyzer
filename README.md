@@ -1,6 +1,6 @@
 ![Depression Center Logo](https://github.com/DepressionCenter/.github/blob/main/images/EFDCLogo_375w.png "depressioncenter.org")
 
-# Yawnalyzer
+# Yawnalyzer™
 
 ## Description
 Automated data cleaning and sleep/gait metrics for Apple Watch data collected via SensorKit and ResearchKit.
@@ -60,7 +60,8 @@ If you need assistance identifying a contact person, email the project maintaine
 
 ## License
 ### Copyright Notice
-Copyright © 2025 The Regents of the University of Michigan
+Yawnalyzer™ is a tremark of the Regents of the University of Michigan.
+Copyright © 2025-2026 The Regents of the University of Michigan.
 
 
 ### Software and Library License Notice
@@ -86,4 +87,4 @@ If you find this repository, code or paper useful for your research, please cite
 
 ----
 
-Copyright © 2024 The Regents of the University of Michigan
+Copyright © 2025-2026 The Regents of the University of Michigan
