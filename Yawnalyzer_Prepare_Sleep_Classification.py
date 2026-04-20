@@ -1,12 +1,5 @@
-from matplotlib import units
-from pandas import Timestamp
 import pandas as pd
-from scipy.ndimage import gaussian_filter1d
-from sys import stderr
 import os
-import datetime
-from pathlib import Path
-import subprocess
 import PathKeeper  # File containing machine-specific paths
 
 
@@ -51,13 +44,18 @@ shared_ids = sorted(set(hr_df["ID"]).intersection(accel_df["ID"]))
 
 ids_ran = []
 
-for participant in shared_ids:
+shared_ids2 = list(set(shared_ids)-set(ids_ran))
+
+# for participant in shared_ids:
+for participant in shared_ids2:
+
+    print(participant)
     this_hr_df = hr_df[hr_df["ID"] == participant].copy()
     this_accel_df = accel_df[accel_df["ID"] == participant].copy()
     #this_hr_df = this_hr_df[["ID","Timestamp","HR"]]
 
     # Acceleration Processing
-    this_accel_df["Time"] = pd.to_datetime(this_accel_df.get("Time"), errors="coerce")
+    this_accel_df["Time"] = pd.to_datetime(this_accel_df.get("Time"), errors="coerce", utc=True)
     new_unix = this_accel_df["Time"].apply(
         lambda x:int(x.timestamp()) if pd.notnull(x) else pd.NA
     )
@@ -78,7 +76,7 @@ for participant in shared_ids:
         na_rep="NA"
         )
     # Heart Rate
-    this_hr_df["TimestampISO"] = pd.to_datetime(this_hr_df.get("TimestampISO"), errors="coerce")
+    this_hr_df["TimestampISO"] = pd.to_datetime(this_hr_df.get("TimestampISO"), errors="coerce", utc=True)
     hr_unix = this_hr_df["TimestampISO"].apply(
         lambda x:int(x.timestamp()) if pd.notnull(x) else pd.NA
 
@@ -116,11 +114,11 @@ for participant in shared_ids:
         na_rep="NA"
         )
 
-    ids_ran = ids_ran.append(participant)
+    ids_ran.append(participant)
 
-id_df = pd.DataFrame(ids_ran, colums="ID")
+id_df = pd.DataFrame(ids_ran, columns=["ID"])
 
-id_df.to_csv("IDs_prepped_for_classification.csv")
+id_df.to_csv(os.path.join(PathKeeper.raw_sleep_classification_file_path,"IDs_prepped_for_classification.csv"))
    
 
 
