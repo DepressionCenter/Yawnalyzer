@@ -49,6 +49,7 @@ accel_df["ID"] = accel_df["ID"].astype(str).str.strip()
 
 shared_ids = sorted(set(hr_df["ID"]).intersection(accel_df["ID"]))
 
+ids_ran = []
 
 for participant in shared_ids:
     this_hr_df = hr_df[hr_df["ID"] == participant].copy()
@@ -70,8 +71,8 @@ for participant in shared_ids:
 
 
     this_accel_df.to_csv(
-        os.path.join(PathKeeper.raw_sleep_classification_file_path,accel_name),
-        sep="\t",
+        os.path.join(PathKeeper.raw_sleep_classification_file_path,"motion",accel_name),
+        sep=" ",
         index=False,
         header=False,
         na_rep="NA"
@@ -103,19 +104,23 @@ for participant in shared_ids:
     this_hr_df2_interprolated["HR"] = this_hr_df2_interprolated["HR"].interpolate(method="linear", limit_area="inside")
     this_hr_df2_interprolated["Timestamp"] = this_hr_df2_interprolated.index.view("int64")//10**9
     #this_hr_df2_interprolated = this_hr_df2_interprolated.reset_index()
+    this_hr_df2_interprolated = this_hr_df2_interprolated[["Timestamp","HR"]]
 
     hr_name = participant + "_heartrate.txt"
 
     this_hr_df2_interprolated.to_csv(
-        os.path.join(PathKeeper.raw_sleep_classification_file_path,hr_name),
-        sep="\t",
+        os.path.join(PathKeeper.raw_sleep_classification_file_path,"heart_rate",hr_name),
+        sep=",",
         index=False,
         header=False,
         na_rep="NA"
         )
 
+    ids_ran = ids_ran.append(participant)
 
+id_df = pd.DataFrame(ids_ran, colums="ID")
 
+id_df.to_csv("IDs_prepped_for_classification.csv")
    
 
 
