@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import PathKeeper  # File containing machine-specific paths
+import time
 
 
 def to_standardized_timezone(time_column, time_zone) :
@@ -21,7 +22,6 @@ hr_df = pd.read_csv(os.path.join(PathKeeper.merged_data_path,"hr_collapsed.csv")
   "filename": "string",
   "HR": "float64",
   "Timestamp":  "float64",
-  "filename": "string",
   "TimestampISO": "string",
  }
 )
@@ -44,12 +44,14 @@ shared_ids = sorted(set(hr_df["ID"]).intersection(accel_df["ID"]))
 
 ids_ran = []
 
-shared_ids2 = list(set(shared_ids)-set(ids_ran))
+shared_ids_remove_previously_ran = list(set(shared_ids)-set(ids_ran))
+shared_ids_remove_previously_ran.sort()
+#for participant in shared_ids:
+for participant in shared_ids_remove_previously_ran:
 
-# for participant in shared_ids:
-for participant in shared_ids2:
-
+    start = time.time()
     print(participant)
+
     this_hr_df = hr_df[hr_df["ID"] == participant].copy()
     this_accel_df = accel_df[accel_df["ID"] == participant].copy()
     #this_hr_df = this_hr_df[["ID","Timestamp","HR"]]
@@ -91,7 +93,7 @@ for participant in shared_ids2:
 
     this_hr_df_minimal["Timestamp"] = pd.to_datetime(this_hr_df_minimal["Timestamp"], unit="s")
 
-    this_hr_df2_interprolated = (
+    this_hr_df_interprolated = (
         this_hr_df_minimal.sort_values("Timestamp")
         .set_index("Timestamp")[["HR"]]
         .resample("1s")
@@ -99,14 +101,14 @@ for participant in shared_ids2:
     )
 
         
-    this_hr_df2_interprolated["HR"] = this_hr_df2_interprolated["HR"].interpolate(method="linear", limit_area="inside")
-    this_hr_df2_interprolated["Timestamp"] = this_hr_df2_interprolated.index.view("int64")//10**9
-    #this_hr_df2_interprolated = this_hr_df2_interprolated.reset_index()
-    this_hr_df2_interprolated = this_hr_df2_interprolated[["Timestamp","HR"]]
+    this_hr_df_interprolated["HR"] = this_hr_df_interprolated["HR"].interpolate(method="linear", limit_area="inside")
+    this_hr_df_interprolated["Timestamp"] = this_hr_df_interprolated.index.view("int64")//10**9
+    #this_hr_df_interprolated = this_hr_df_interprolated.reset_index()
+    this_hr_df_interprolated = this_hr_df_interprolated[["Timestamp","HR"]]
 
     hr_name = participant + "_heartrate.txt"
 
-    this_hr_df2_interprolated.to_csv(
+    this_hr_df_interprolated.to_csv(
         os.path.join(PathKeeper.raw_sleep_classification_file_path,"heart_rate",hr_name),
         sep=",",
         index=False,
@@ -115,10 +117,12 @@ for participant in shared_ids2:
         )
 
     ids_ran.append(participant)
+    final_time = time.time() - start
+    print(f"Files for {participant} took {final_time:.4f} seconds")
 
 id_df = pd.DataFrame(ids_ran, columns=["ID"])
 
-id_df.to_csv(os.path.join(PathKeeper.raw_sleep_classification_file_path,"IDs_prepped_for_classification.csv"))
+id_df.to_csv(os.path.join(PathKeeper.raw_sleep_classification_file_path,"IDs_prepped_for_classification.csv"), index=False)
    
 
 
