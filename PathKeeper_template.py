@@ -6,3 +6,5 @@
 # merged_data_path = "PATH/TO/FOLDER/FOR/MERGED/DATA" 
 # data_log_path = "PATH/TO/FOLDER/FOR/LOGS"
 # summarized_data_path ="PATH/TO/FOLDER/FOR/SUMMARIZED/DATA"
+# raw_sleep_classification_file_path = "PATH/TO/FOLDER/FOR/PLAIN/TEXT/CLASSIFICATION/FILES"
+# clean_sleep_classification_file_path = "PATH/TO/FOLDER/FOR/OUTPUT/OF/CLASSIFICATION/"
