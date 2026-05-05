@@ -60,7 +60,7 @@ If you need assistance identifying a contact person, email the project maintaine
 
 ## License
 ### Copyright Notice
-Yawnalyzer™ is a tremark of the Regents of the University of Michigan.
+Yawnalyzer™ is a trademark of the Regents of the University of Michigan.
 Copyright © 2025-2026 The Regents of the University of Michigan.
 
 
