@@ -5,7 +5,7 @@
 ## Description
 Automated data cleaning and sleep/gait metrics for Apple Watch data collected via SensorKit and ResearchKit.
 
-
+![Double support, pain, physical fatigue, brain fatigue, sleepiness, new symptoms, hr, and sleep classifications in one graph!](images/Yawnalyzer.png "Yawnalyzer sample combined graph: gait, pain, EMA, sleep classifications.")
 
 ## Quick Start Guide
 + To use this with your own data, first download and extract this repository (or clone it)
@@ -30,32 +30,30 @@ Automated data cleaning and sleep/gait metrics for Apple Watch data collected vi
 
 
 ## About the Team
-This project is the result of a collaboration between Michigan Medicine Neurology Clinic, University of Michigan HomeLab, and Eisenberg Family Depression Center.
-
-Learn more at: [U-M HomeLab](https://homelab.isr.umich.edu/)
+This project is a collaboration between the [Braley Lab](https://medschool.umich.edu/profile/1267/tiffany-j-braley) at at the University of Michigan Multiple Sclerosis and Sleep Medicine Divisions, the University of Michigan [HomeLab](https://homelab.isr.umich.edu/), and the [Eisenberg Family Depression Center](https://depressioncenter.org/).
 
 
 
 ## Contact
-To get in touch, contact the individual developers in the check-in history.
+For questions about this study or the science behind the code, please contact Dr. Tiffany Braley, MD, MS, at tbraley@med.umich.edu.
 
-If you need assistance identifying a contact person, email the project maintainers at: efdc-mobiletech@umich.edu
+For technical questions, please contact the project maintainers at: efdc-mobiletech@umich.edu.
 
 
 
 ## Credits
 #### Contributors:
-+ Brandon Labbree [(@blabbree)](https://github.com/blabbree) - U-M HomeLab
-+ [Tiffany Braley](https://www.medicine.umich.edu/dept/mni/tiffany-braley-md) - Michigan Medicine Neurology
-+ Gabriel Mongefranco [(@gabrielmongefranco)](https://github.com/gabrielmongefranco) - Depression Center
++ [Tiffany Braley, MD, MS](https://www.medicine.umich.edu/dept/mni/tiffany-braley-md), Holtom-Garrett Family Professor of Neurology, Brailey Lab, University of Michigan Medical School.
++ Brandon Labbree [(@blabbree)](https://github.com/blabbree), Research Lab Manager, University of Michigan HomeLab
++ Gabriel Mongefranco [(@gabrielmongefranco)](https://github.com/gabrielmongefranco), Mobile Data Architect, Mobile Technologies Core, Eisenberg Family Depression Center
 + Eisenberg Family Depression Center [(@DepressionCenter)](https://github.com/DepressionCenter/)
 
 
 
 #### This work is based in part on the following projects, libraries and/or studies:
 + Apple HealthKit
-+ Arcascope custom research data collection application
-
++ [Arcascope](https://arcascope.com/) custom research data collection application
++ For a listing of libraries used, please see the source code headers
 
 
 ## License
