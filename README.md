@@ -3,7 +3,9 @@
 # Yawnalyzer™
 
 ## Description
-Automated data cleaning and sleep/gait metrics for Apple Watch data collected via SensorKit and ResearchKit.
+Yawnalyzer™ is an open-source Python and Quarto pipeline for cleaning Apple Watch data collected with SensorKit and ResearchKit. It generates preprocessing reports and derives sleep and gait metrics from mobile-health study exports.
+
+The workflow provides scripts for batch cleaning, Quarto quality-control and visualization reports, and joining summary outputs, with configurable paths for local datasets. It is intended for researchers and data analysts working with Apple Watch, digital phenotyping, sleep, gait, and longitudinal sensor data.
 
 ![Double support, pain, physical fatigue, brain fatigue, sleepiness, new symptoms, hr, and sleep classifications in one graph!](images/Yawnalyzer.png "Yawnalyzer sample combined graph: gait, pain, EMA, sleep classifications.")
 
