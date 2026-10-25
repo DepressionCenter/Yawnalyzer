@@ -598,7 +598,7 @@ if not df_all_surveys.empty:
         parsed = {}
         for col in question_cols:
             val = row.get(col)
-            if pd.isna(val):
+            if pd.isna(val) or not val.strip():
                 continue
             if ":" in val:
                 quest_name, quest_value = val.split(":", 1)
@@ -606,7 +606,7 @@ if not df_all_surveys.empty:
                 quest_value = quest_value.strip()
                 parsed[quest_name] = extract_numeric(quest_value)
             else:
-                parsed[quest_name] = val
+                continue
         rows_fulltext.append({**main_df, **parsed})
     df_all_surveys = pd.DataFrame(rows_fulltext)
     df_all_surveys.to_csv(
