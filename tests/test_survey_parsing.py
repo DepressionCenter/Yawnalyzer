@@ -1,6 +1,24 @@
+# Copyright © 2025 The Regents of the University of Michigan
+#
+# This file is part of Yawnalyzer.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program. If not, see <https://www.gnu.org/licenses/>.
+
 import csv
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -73,11 +91,17 @@ class SurveyParsingTests(unittest.TestCase):
                 "merged_data_path = " + repr(str(output_dir)) + "\n",
                 encoding="utf-8",
             )
+
+            # Run an isolated copy so Python cannot import a repository-local
+            # PathKeeper.py that points to real study data.
+            isolated_script = temp / CLEANING_SCRIPT.name
+            shutil.copy2(CLEANING_SCRIPT, isolated_script)
+
             env = os.environ.copy()
-            env["PYTHONPATH"] = str(temp) + os.pathsep + env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = str(temp)
             result = subprocess.run(
-                [sys.executable, str(CLEANING_SCRIPT)],
-                cwd=REPOSITORY_ROOT,
+                [sys.executable, str(isolated_script)],
+                cwd=temp,
                 env=env,
                 capture_output=True,
                 text=True,
